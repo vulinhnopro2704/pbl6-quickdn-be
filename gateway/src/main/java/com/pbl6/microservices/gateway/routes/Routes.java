@@ -12,6 +12,7 @@ public class Routes {
     public RouterFunction<ServerResponse> orderServiceRoute() {
         return GatewayRouterFunctions.route("order-service")
                 .route(RequestPredicates.path("api/order/test"), HandlerFunctions.http("http://localhost:8081"))
+                .route(RequestPredicates.path("api/order"), HandlerFunctions.http("http://localhost:8081"))
                 .build();
     }
 
@@ -19,6 +20,9 @@ public class Routes {
     public RouterFunction<ServerResponse> authServiceRoute() {
         return GatewayRouterFunctions.route("auth-service")
                 .route(RequestPredicates.path("api/auth/test"), HandlerFunctions.http("http://localhost:8082"))
+                .route(RequestPredicates.path("api/auth/register"), HandlerFunctions.http("http://localhost:8082"))
+                .route(RequestPredicates.path("api/auth/login"), HandlerFunctions.http("http://localhost:8082"))
+                .route(RequestPredicates.path("api/auth/logout"), HandlerFunctions.http("http://localhost:8082"))
                 .build();
     }
 
