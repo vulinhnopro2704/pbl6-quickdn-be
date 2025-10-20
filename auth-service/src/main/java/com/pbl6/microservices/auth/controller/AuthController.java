@@ -4,9 +4,12 @@ import com.pbl6.microservices.auth.dto.AuthResponse;
 import com.pbl6.microservices.auth.dto.LoginRequest;
 import com.pbl6.microservices.auth.dto.RegisterRequest;
 import com.pbl6.microservices.auth.service.AuthService;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Duration;
+import java.util.Date;
 import java.util.Map;
 
 @RestController
@@ -31,14 +34,21 @@ public class AuthController {
         return ResponseEntity.ok(authService.refresh(body.get("refreshToken")));
     }
 
-    @PostMapping("/logout")
-    public ResponseEntity<?> logout(@RequestBody Map<String,String> body){
-        authService.logout(body.get("phone"));
-        return ResponseEntity.ok(Map.of("status","ok"));
+//    @PostMapping("/logout")
+//    public ResponseEntity<?> logout(@RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authHeader) {
+//        return authService.logout(authHeader);
+//    }
+
+    private String resolveFromHeader(String header) {
+        if (header == null) return null;
+        if (header.startsWith("Bearer ")) return header.substring(7);
+        return null;
     }
 
     @GetMapping("/test")
     public String test(){
         return "Hello Auth Service";
     }
+
+
 }

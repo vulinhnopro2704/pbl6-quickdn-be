@@ -65,4 +65,28 @@ public class JwtUtils {
         return Jwts.parserBuilder().setSigningKey(key).build()
                 .parseClaimsJws(token).getBody().getSubject();
     }
+    public Claims getAllClaims(String token) {
+        return Jwts.parserBuilder().setSigningKey(key).build()
+                .parseClaimsJws(token).getBody();
+    }
+
+    public String getSubject(String token) {
+        return getAllClaims(token).getSubject();
+    }
+
+    public String getJti(String token) {
+        return getAllClaims(token).getId();
+    }
+
+    public long getRemainingSeconds(String token) {
+        Date exp = getAllClaims(token).getExpiration();
+        long sec = (exp.getTime() - System.currentTimeMillis()) / 1000L;
+        return Math.max(sec, 0L);
+    }
+
+    public String resolveFromHeader(String header) {
+        if (header == null) return null;
+        if (header.startsWith("Bearer ")) return header.substring(7);
+        return null;
+    }
 }

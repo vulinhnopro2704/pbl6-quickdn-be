@@ -8,10 +8,13 @@ import com.pbl6.microservices.auth.repository.UserRepository;
 import com.pbl6.microservices.auth.util.JwtUtils;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.Instant;
+import java.util.Date;
 import java.util.Map;
 import java.util.Optional;
 
@@ -21,13 +24,15 @@ public class AuthService {
     private final RefreshTokenRepository refreshRepo;
     private final JwtUtils jwtUtils;
     private final PasswordEncoder encoder;
+    private final TokenBlacklistService blacklist;
     @Value("${JWT_REFRESH_EXP_MS:2592000000}")
     private long refreshMs;
 
     public AuthService(UserRepository userRepo, RefreshTokenRepository refreshRepo,
-                       JwtUtils jwtUtils, PasswordEncoder encoder) {
+                       JwtUtils jwtUtils, TokenBlacklistService blacklist, PasswordEncoder encoder) {
         this.userRepo = userRepo; this.refreshRepo = refreshRepo;
         this.jwtUtils = jwtUtils; this.encoder = encoder;
+        this.blacklist = blacklist;
     }
 
     // register
@@ -42,6 +47,7 @@ public class AuthService {
     }
 
     // login
+    @Transactional
     public AuthResponse login(String phone, String rawPassword) {
         User u = userRepo.findByPhone(phone)
                 .orElseThrow(() -> new RuntimeException("Invalid credentials"));
@@ -91,8 +97,18 @@ public class AuthService {
     }
 
     // refresh, logout unchanged except if you used username parameter before
-    @Transactional
-    public void logout(String phone) {
-        userRepo.findByPhone(phone).ifPresent(refreshRepo::deleteByUser);
-    }
+//    @Transactional
+//    public ResponseEntity<?> logout(String authHeader) {
+//        String token = jwtUtils.resolveFromHeader(authHeader);
+//        if (token == null || !jwtUtils.validate(token)) {
+//            return ResponseEntity.badRequest().body(Map.of("message", "Invalid or missing token"));
+//        }
+//
+//        Date exp = jwtUtils.(token); // rename if your JwtUtils differs
+//        long ttlMs = exp.getTime() - System.currentTimeMillis();
+//        if (ttlMs > 0) {
+//            blacklist.blacklist(token, Duration.ofMillis(ttlMs));
+//        }
+//        return ResponseEntity.ok(Map.of("message", "Logged out"));
+//    }
 }
