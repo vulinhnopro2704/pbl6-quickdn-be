@@ -1,0 +1,67 @@
+#!/bin/sh
+# Git pre-push hook để build và test NHANH trước khi push
+# Chỉ build service bạn vừa thay đổi
+# File này sẽ tự động chạy mỗi khi bạn push code
+
+echo ""
+echo "=========================================="
+echo "  Git Pre-Push Hook: Quick Build..."
+echo "=========================================="
+echo ""
+
+# Lấy đường dẫn root của repository
+ROOT_DIR=$(git rev-parse --show-toplevel)
+
+# Tìm các service đã thay đổi
+CHANGED_SERVICES=""
+
+# Kiểm tra xem có file nào trong auth-service thay đổi không
+if git diff --name-only HEAD origin/main | grep -q "^auth-service/"; then
+    CHANGED_SERVICES="$CHANGED_SERVICES auth-service"
+fi
+
+# Kiểm tra gateway
+if git diff --name-only HEAD origin/main | grep -q "^gateway/"; then
+    CHANGED_SERVICES="$CHANGED_SERVICES gateway"
+fi
+
+# Kiểm tra order-service
+if git diff --name-only HEAD origin/main | grep -q "^order-service/"; then
+    CHANGED_SERVICES="$CHANGED_SERVICES order-service"
+fi
+
+# Kiểm tra goongmap-service
+if git diff --name-only HEAD origin/main | grep -q "^goongmap-service/"; then
+    CHANGED_SERVICES="$CHANGED_SERVICES goongmap-service"
+fi
+
+# Nếu không có service nào thay đổi, bỏ qua build
+if [ -z "$CHANGED_SERVICES" ]; then
+    echo "ℹ Không có service nào thay đổi, bỏ qua build."
+    echo ""
+    exit 0
+fi
+
+echo "Services đã thay đổi:$CHANGED_SERVICES"
+echo ""
+
+# Build từng service đã thay đổi
+for SERVICE in $CHANGED_SERVICES; do
+    echo "Building $SERVICE..."
+    powershell.exe -ExecutionPolicy Bypass -File "$ROOT_DIR/manage.ps1" build "$SERVICE"
+    
+    if [ $? -ne 0 ]; then
+        echo ""
+        echo "✗ Build $SERVICE thất bại! Push bị hủy."
+        echo "Hãy sửa lỗi build trước khi push."
+        echo ""
+        echo "Nếu muốn bỏ qua hook này, dùng: git push --no-verify"
+        echo ""
+        exit 1
+    fi
+done
+
+echo ""
+echo "✓ Tất cả services build thành công! Tiếp tục push..."
+echo ""
+exit 0

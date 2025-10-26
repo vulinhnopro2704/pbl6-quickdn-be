@@ -47,7 +47,7 @@ dependencies {
     testImplementation 'org.testcontainers:postgresql'
 }
 
-group = 'com.pbl6.microservices'
+group = 'com.pbl6'
 version = '0.0.1-SNAPSHOT'
 description = 'auth-service'
 java.sourceCompatibility = JavaVersion.VERSION_21

@@ -1,9 +1,239 @@
 version: "3.9"
+
+# Define common network for all services
+networks:
+  pbl6-network:
+    driver: bridge
+
+# Define common volumes for data persistence
+volumes:
+  redis-data:
+  auth-db-data:
+  goongmap-db-data:
+  order-db-data:
+
 services:
+  # Redis - JWT Blacklist & Caching
   redis:
     image: redis:7-alpine
     container_name: redis-jwt-blacklist
-    ports:
-      - "6379:6379"
     command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    networks:
+      - pbl6-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    # No ports exposed - internal only
+
+  # PostgreSQL for Auth Service
+  auth-db:
+    image: postgres:16-alpine
+    container_name: auth-postgres-db
+    environment:
+      POSTGRES_DB: ${AUTH_DB_NAME:-auth_db}
+      POSTGRES_USER: ${AUTH_DB_USER:-auth_user}
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD:-auth_password}
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+    networks:
+      - pbl6-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AUTH_DB_USER:-auth_user} -d ${AUTH_DB_NAME:-auth_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    # No ports exposed - internal only
+
+  # PostgreSQL for Goongmap Service
+  goongmap-db:
+    image: postgres:16-alpine
+    container_name: goongmap-postgres-db
+    environment:
+      POSTGRES_DB: ${GOONGMAP_DB_NAME:-goongmap_db}
+      POSTGRES_USER: ${GOONGMAP_DB_USER:-goongmap_user}
+      POSTGRES_PASSWORD: ${GOONGMAP_DB_PASSWORD:-goongmap_password}
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - goongmap-db-data:/var/lib/postgresql/data
+    networks:
+      - pbl6-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${GOONGMAP_DB_USER:-goongmap_user} -d ${GOONGMAP_DB_NAME:-goongmap_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    # No ports exposed - internal only
+
+  # PostgreSQL for Order Service
+  order-db:
+    image: postgres:16-alpine
+    container_name: order-postgres-db
+    environment:
+      POSTGRES_DB: ${ORDER_DB_NAME:-order_db}
+      POSTGRES_USER: ${ORDER_DB_USER:-order_user}
+      POSTGRES_PASSWORD: ${ORDER_DB_PASSWORD:-order_password}
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - order-db-data:/var/lib/postgresql/data
+    networks:
+      - pbl6-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ORDER_DB_USER:-order_user} -d ${ORDER_DB_NAME:-order_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    # No ports exposed - internal only
+
+  # Auth Service
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    container_name: auth-service
+    env_file:
+      - ${ENV_FILE:-./auth-service/.env}
+    environment:
+      # Production mode: use environment variables from VPS
+      # Development mode: will be overridden by .env file
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SERVER_PORT: ${AUTH_SERVICE_PORT:-8081}
+      AUTH_DB_HOST: auth-db
+      DB_PORT: 5432
+      DB_NAME: ${AUTH_DB_NAME:-auth_db}
+      DB_USER: ${AUTH_DB_USER:-auth_user}
+      DB_PASS: ${AUTH_DB_PASSWORD:-auth_password}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ACCESS_EXP_MS: ${JWT_ACCESS_EXP_MS:-3600000}
+      JWT_REFRESH_EXP_MS: ${JWT_REFRESH_EXP_MS:-86400000}
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - pbl6-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:${AUTH_SERVICE_PORT:-8081}/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    # No ports exposed - internal only
+
+  # Goongmap Service
+  goongmap-service:
+    build:
+      context: ./goongmap-service
+      dockerfile: Dockerfile
+    container_name: goongmap-service
+    env_file:
+      - ${ENV_FILE:-./goongmap-service/.env}
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SERVER_PORT: ${GOONGMAP_SERVICE_PORT:-8082}
+      DB_HOST: goongmap-db
+      DB_PORT: 5432
+      DB_NAME: ${GOONGMAP_DB_NAME:-goongmap_db}
+      DB_USER: ${GOONGMAP_DB_USER:-goongmap_user}
+      DB_PASS: ${GOONGMAP_DB_PASSWORD:-goongmap_password}
+      GOONGMAP_API_KEY: ${GOONGMAP_API_KEY}
+    depends_on:
+      goongmap-db:
+        condition: service_healthy
+    networks:
+      - pbl6-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:${GOONGMAP_SERVICE_PORT:-8082}/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    # No ports exposed - internal only
+
+  # Order Service
+  order-service:
+    build:
+      context: ./order-service
+      dockerfile: Dockerfile
+    container_name: order-service
+    env_file:
+      - ${ENV_FILE:-./order-service/.env}
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SERVER_PORT: ${ORDER_SERVICE_PORT:-8083}
+      DB_HOST: order-db
+      DB_PORT: 5432
+      DB_NAME: ${ORDER_DB_NAME:-order_db}
+      DB_USER: ${ORDER_DB_USER:-order_user}
+      DB_PASS: ${ORDER_DB_PASSWORD:-order_password}
+    depends_on:
+      order-db:
+        condition: service_healthy
+    networks:
+      - pbl6-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:${ORDER_SERVICE_PORT:-8083}/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    # No ports exposed - internal only
+
+  # API Gateway - ONLY publicly exposed service
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    env_file:
+      - ${ENV_FILE:-./gateway/.env}
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SERVER_PORT: ${GATEWAY_PORT:-8080}
+      AUTH_SERVICE_URL: http://auth-service:${AUTH_SERVICE_PORT:-8081}
+      GOONGMAP_SERVICE_URL: http://goongmap-service:${GOONGMAP_SERVICE_PORT:-8082}
+      ORDER_SERVICE_URL: http://order-service:${ORDER_SERVICE_PORT:-8083}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-*}
+      CORS_ALLOWED_METHODS: ${CORS_ALLOWED_METHODS:-GET,POST,PUT,DELETE,OPTIONS}
+      CORS_ALLOWED_HEADERS: ${CORS_ALLOWED_HEADERS:-*}
+      CORS_EXPOSED_HEADERS: ${CORS_EXPOSED_HEADERS:-Authorization}
+      CORS_ALLOW_CREDENTIALS: ${CORS_ALLOW_CREDENTIALS:-true}
+    ports:
+      - "${GATEWAY_PUBLIC_PORT:-8080}:${GATEWAY_PORT:-8080}"  # ONLY public exposure
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      goongmap-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+    networks:
+      - pbl6-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:${GATEWAY_PORT:-8080}/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     restart: unless-stopped

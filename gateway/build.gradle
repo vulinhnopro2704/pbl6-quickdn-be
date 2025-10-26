@@ -30,7 +30,7 @@ dependencyManagement {
     }
 }
 
-group = 'com.pbl6.microservices'
+group = 'com.pbl6'
 version = '0.0.1-SNAPSHOT'
 description = 'api-gateway'
 java.sourceCompatibility = JavaVersion.VERSION_17
