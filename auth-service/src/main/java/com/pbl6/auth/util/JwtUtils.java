@@ -14,19 +14,22 @@ import java.util.UUID;
 
 @Component
 public class JwtUtils {
-    @Value("${JWT_SECRET}")
+    @Value("${jwt.secret}")
     private String jwtSecret;
 
-    @Value("${JWT_ACCESS_EXP_MS:300000}")
+    @Value("${jwt.access-exp-ms:300000}")
     private long accessMs;
 
-    @Value("${JWT_REFRESH_EXP_MS:2592000000}")
+    @Value("${jwt.refresh-exp-ms:2592000000}")
     private long refreshMs;
 
     private Key key;
 
     @PostConstruct
     public void init() {
+        if (jwtSecret == null || jwtSecret.trim().isEmpty()) {
+            throw new IllegalStateException("JWT_SECRET is not configured. Please set jwt.secret in application.yml");
+        }
         key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 

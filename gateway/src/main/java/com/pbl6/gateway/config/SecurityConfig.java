@@ -1,7 +1,6 @@
 package com.pbl6.gateway.config;
 
 import java.util.Arrays;
-import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -45,7 +44,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/goongmap/test").permitAll()
-                        .anyRequest().permitAll() // Tạm thời permitAll, sau này có thể thêm authentication
+                        .anyRequest().permitAll()
                 );
         return http.build();
     }
@@ -54,7 +53,7 @@ public class SecurityConfig {
     @Primary
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cfg = new CorsConfiguration();
-        cfg.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
+        cfg.setAllowedOriginPatterns(Arrays.asList(allowedOrigins.split(",")));
         cfg.setAllowedMethods(Arrays.asList(allowedMethods.split(",")));
         cfg.setAllowedHeaders(Arrays.asList(allowedHeaders.split(",")));
         cfg.setExposedHeaders(Arrays.asList(exposedHeaders.split(",")));
