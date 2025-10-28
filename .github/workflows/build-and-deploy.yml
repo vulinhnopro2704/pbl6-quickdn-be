@@ -18,11 +18,13 @@ jobs:
   build-and-push:
     name: Build and Push Images
     runs-on: ubuntu-latest
+    environment: pbl6-backend-production
     
     permissions:
       contents: read
       packages: write
     strategy:
+      fail-fast: false
       matrix:
         service:
           - gateway
@@ -104,6 +106,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-and-push]
     if: github.ref == 'refs/heads/main'
+    environment: pbl6-backend-production
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -141,6 +144,11 @@ jobs:
             cat > .env << 'EOF'
             # Registry Configuration
             REGISTRY_USERNAME=${{ secrets.REGISTRY_USERNAME }}
+            
+            # Service URLs Configuration
+            AUTH_SERVICE_URL=${{ secrets.AUTH_SERVICE_URL }}
+            GOONGMAP_SERVICE_URL=${{ secrets.GOONGMAP_SERVICE_URL }}
+            ORDER_SERVICE_URL=${{ secrets.ORDER_SERVICE_URL }}
             
             # Database Configuration - Auth Service
             AUTH_DB_NAME=${{ secrets.AUTH_DB_NAME }}
@@ -219,31 +227,69 @@ jobs:
             # Navigate to docker-compose directory
             cd ~/pbl6-backend
             
+            # Determine docker command with proper privileges (supports sudo password via secret)
+            SUDO_PW="${{ secrets.VPS_SUDO_PASSWORD }}"
+            if docker info >/dev/null 2>&1; then
+              DOCKER="docker"
+              SUDO_MODE="none"
+            elif sudo -n docker info >/dev/null 2>&1; then
+              DOCKER="sudo docker"
+              SUDO_MODE="noninteractive"
+            elif [ -n "$SUDO_PW" ] && echo "$SUDO_PW" | sudo -S -p "" docker info >/dev/null 2>&1; then
+              DOCKER="sudo -S docker"
+              SUDO_MODE="withpassword"
+            else
+              echo "Cannot access Docker daemon. Options:"
+              echo "  1) Add user '$USER' to docker group: sudo usermod -aG docker $USER && newgrp docker"
+              echo "  2) Configure passwordless sudo for docker or run as a user with docker access"
+              echo "  3) Provide VPS_SUDO_PASSWORD secret so the workflow can run 'sudo docker' non-interactively"
+              exit 1
+            fi
+
+            docker_cmd() {
+              if [ "$SUDO_MODE" = "withpassword" ]; then
+                echo "$SUDO_PW" | sudo -S -p "" docker "$@"
+              else
+                $DOCKER "$@"
+              fi
+            }
+            docker_compose_cmd() {
+              if [ "$SUDO_MODE" = "withpassword" ]; then
+                echo "$SUDO_PW" | sudo -S -p "" docker compose "$@"
+              else
+                $DOCKER compose "$@"
+              fi
+            }
+            
             # Login to GitHub Container Registry
-            echo "${{ secrets.REGISTRY_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ secrets.REGISTRY_USERNAME }} --password-stdin
+            if [ "$SUDO_MODE" = "withpassword" ]; then
+              echo "${{ secrets.REGISTRY_TOKEN }}" | echo "$SUDO_PW" | sudo -S -p "" docker login ${{ env.REGISTRY }} -u ${{ secrets.REGISTRY_USERNAME }} --password-stdin
+            else
+              echo "${{ secrets.REGISTRY_TOKEN }}" | $DOCKER login ${{ env.REGISTRY }} -u ${{ secrets.REGISTRY_USERNAME }} --password-stdin
+            fi
             
             echo "Pulling latest images for all services..."
-            docker pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/gateway:latest || true
-            docker pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/auth-service:latest || true
-            docker pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/order-service:latest || true
-            docker pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/goongmap-service:latest || true
+            docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/gateway:latest || true
+            docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/auth-service:latest || true
+            docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/order-service:latest || true
+            docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/goongmap-service:latest || true
 
             echo "Recreating all services with latest images..."
-            docker compose up -d --force-recreate
+            docker_compose_cmd up -d --force-recreate
             
             echo "==================================="
             echo "Deployment completed successfully!"
             echo "==================================="
             
             # Show status
-            docker compose ps
+            docker_compose_cmd ps
             
             # Cleanup old images
             echo "Cleaning up old images..."
-            docker image prune -f
+            docker_cmd image prune -f
             
             # Logout from registry
-            docker logout ${{ env.REGISTRY }}
+            docker_cmd logout ${{ env.REGISTRY }}
 
       - name: Verify deployment
         uses: appleboy/ssh-action@v1.0.3
@@ -255,14 +301,44 @@ jobs:
           script: |
             cd ~/pbl6-backend
             
+            # Determine docker command with proper privileges (supports sudo password via secret)
+            SUDO_PW="${{ secrets.VPS_SUDO_PASSWORD }}"
+            if docker info >/dev/null 2>&1; then
+              DOCKER="docker"
+              SUDO_MODE="none"
+            elif sudo -n docker info >/dev/null 2>&1; then
+              DOCKER="sudo docker"
+              SUDO_MODE="noninteractive"
+            elif [ -n "$SUDO_PW" ] && echo "$SUDO_PW" | sudo -S -p "" docker info >/dev/null 2>&1; then
+              DOCKER="sudo -S docker"
+              SUDO_MODE="withpassword"
+            else
+              echo "Cannot access Docker daemon. Ensure user has docker permissions (docker group) or provide VPS_SUDO_PASSWORD secret."
+              exit 1
+            fi
+            docker_cmd() {
+              if [ "$SUDO_MODE" = "withpassword" ]; then
+                echo "$SUDO_PW" | sudo -S -p "" docker "$@"
+              else
+                $DOCKER "$@"
+              fi
+            }
+            docker_compose_cmd() {
+              if [ "$SUDO_MODE" = "withpassword" ]; then
+                echo "$SUDO_PW" | sudo -S -p "" docker compose "$@"
+              else
+                $DOCKER compose "$@"
+              fi
+            }
+            
             echo "==================================="
             echo "Verifying deployment..."
             echo "==================================="
             
             # Check running containers
-            docker compose ps
+            docker_compose_cmd ps
             
             # Check logs for errors (last 50 lines)
             echo ""
             echo "Recent logs:"
-            docker compose logs --tail=50
+            docker_compose_cmd logs --tail=50

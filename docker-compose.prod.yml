@@ -174,6 +174,11 @@ services:
       DB_NAME: ${ORDER_DB_NAME:-order_db}
       DB_USER: ${ORDER_DB_USER:-order_user}
       DB_PASS: ${ORDER_DB_PASSWORD:-order_password}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ACCESS_EXP_MS: ${JWT_ACCESS_EXP_MS:-3600000}
+      JWT_REFRESH_EXP_MS: ${JWT_REFRESH_EXP_MS:-86400000}
     depends_on:
       order-db:
         condition: service_healthy
@@ -195,9 +200,9 @@ services:
     environment:
       SPRING_CONFIG_IMPORT: ""
       SERVER_PORT: 8080
-      AUTH_SERVICE_URL: http://auth-service:8081
-      GOONGMAP_SERVICE_URL: http://goongmap-service:8082
-      ORDER_SERVICE_URL: http://order-service:8083
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-http://auth-service:8081}
+      GOONGMAP_SERVICE_URL: ${GOONGMAP_SERVICE_URL:-http://goongmap-service:8082}
+      ORDER_SERVICE_URL: ${ORDER_SERVICE_URL:-http://order-service:8083}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
       CORS_ALLOWED_METHODS: ${CORS_ALLOWED_METHODS:-GET,POST,PUT,DELETE,OPTIONS}
       CORS_ALLOWED_HEADERS: ${CORS_ALLOWED_HEADERS:-Content-Type,Authorization}
@@ -205,13 +210,6 @@ services:
       CORS_ALLOW_CREDENTIALS: ${CORS_ALLOW_CREDENTIALS:-true}
     networks:
       - pbl6-network
-    depends_on:
-      auth-service:
-        condition: service_healthy
-      goongmap-service:
-        condition: service_healthy
-      order-service:
-        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
       interval: 30s
