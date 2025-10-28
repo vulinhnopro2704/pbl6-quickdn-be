@@ -196,7 +196,7 @@ services:
     image: ghcr.io/${REGISTRY_USERNAME:-vulinhnopro2704}/pbl6-quickdn-be/gateway:latest
     container_name: api-gateway
     ports:
-      - "8080:8080"
+      - "80:8080"
     environment:
       SPRING_CONFIG_IMPORT: ""
       SERVER_PORT: 8080
