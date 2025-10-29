@@ -1,0 +1,219 @@
+version: "3.9"
+
+# Production docker-compose file for VPS deployment
+# This file uses pre-built images from GitHub Container Registry
+
+networks:
+  pbl6-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+  auth-db-data:
+  goongmap-db-data:
+  order-db-data:
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis-jwt-blacklist
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - pbl6-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  auth-db:
+    image: postgres:16-alpine
+    container_name: auth-postgres-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${AUTH_DB_NAME:-auth_db}
+      POSTGRES_USER: ${AUTH_DB_USER:-auth_user}
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD:-auth_password}
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+    networks:
+      - pbl6-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AUTH_DB_USER:-auth_user} -d ${AUTH_DB_NAME:-auth_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  goongmap-db:
+    image: postgres:16-alpine
+    container_name: goongmap-postgres-db
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: ${GOONGMAP_DB_NAME:-goongmap_db}
+      POSTGRES_USER: ${GOONGMAP_DB_USER:-goongmap_user}
+      POSTGRES_PASSWORD: ${GOONGMAP_DB_PASSWORD:-goongmap_password}
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - goongmap-db-data:/var/lib/postgresql/data
+    networks:
+      - pbl6-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${GOONGMAP_DB_USER:-goongmap_user} -d ${GOONGMAP_DB_NAME:-goongmap_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  order-db:
+    image: postgres:16-alpine
+    container_name: order-postgres-db
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_DB: ${ORDER_DB_NAME:-order_db}
+      POSTGRES_USER: ${ORDER_DB_USER:-order_user}
+      POSTGRES_PASSWORD: ${ORDER_DB_PASSWORD:-order_password}
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - order-db-data:/var/lib/postgresql/data
+    networks:
+      - pbl6-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ORDER_DB_USER:-order_user} -d ${ORDER_DB_NAME:-order_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  auth-service:
+    image: ghcr.io/${REGISTRY_USERNAME:-vulinhnopro2704}/pbl6-quickdn-be/auth-service:latest
+    container_name: auth-service
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_CONFIG_IMPORT: ""
+      SERVER_PORT: 8081
+      AUTH_DB_HOST: auth-db
+      DB_PORT: 5432
+      DB_NAME: ${AUTH_DB_NAME:-auth_db}
+      DB_USER: ${AUTH_DB_USER:-auth_user}
+      DB_PASS: ${AUTH_DB_PASSWORD:-auth_password}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ACCESS_EXP_MS: ${JWT_ACCESS_EXP_MS:-3600000}
+      JWT_REFRESH_EXP_MS: ${JWT_REFRESH_EXP_MS:-86400000}
+    networks:
+      - pbl6-network
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  goongmap-service:
+    image: ghcr.io/${REGISTRY_USERNAME:-vulinhnopro2704}/pbl6-quickdn-be/goongmap-service:latest
+    container_name: goongmap-service
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SERVER_PORT: 8082
+      DB_HOST: goongmap-db
+      DB_PORT: 5432
+      DB_NAME: ${GOONGMAP_DB_NAME:-goongmap_db}
+      DB_USER: ${GOONGMAP_DB_USER:-goongmap_user}
+      DB_PASS: ${GOONGMAP_DB_PASSWORD:-goongmap_password}
+      GOONGMAP_API_KEY: ${GOONGMAP_API_KEY}
+    depends_on:
+      goongmap-db:
+        condition: service_healthy
+    networks:
+      - pbl6-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8082/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  order-service:
+    image: ghcr.io/${REGISTRY_USERNAME:-vulinhnopro2704}/pbl6-quickdn-be/order-service:latest
+    container_name: order-service
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SERVER_PORT: 8083
+      DB_HOST: order-db
+      DB_PORT: 5432
+      DB_NAME: ${ORDER_DB_NAME:-order_db}
+      DB_USER: ${ORDER_DB_USER:-order_user}
+      DB_PASS: ${ORDER_DB_PASSWORD:-order_password}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ACCESS_EXP_MS: ${JWT_ACCESS_EXP_MS:-3600000}
+      JWT_REFRESH_EXP_MS: ${JWT_REFRESH_EXP_MS:-86400000}
+    depends_on:
+      order-db:
+        condition: service_healthy
+    networks:
+      - pbl6-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8083/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  gateway:
+    image: ghcr.io/${REGISTRY_USERNAME:-vulinhnopro2704}/pbl6-quickdn-be/gateway:latest
+    container_name: api-gateway
+    ports:
+      - "80:8080"
+    environment:
+      SPRING_CONFIG_IMPORT: ""
+      SERVER_PORT: 8080
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-http://auth-service:8081}
+      GOONGMAP_SERVICE_URL: ${GOONGMAP_SERVICE_URL:-http://goongmap-service:8082}
+      ORDER_SERVICE_URL: ${ORDER_SERVICE_URL:-http://order-service:8083}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      CORS_ALLOWED_METHODS: ${CORS_ALLOWED_METHODS:-GET,POST,PUT,DELETE,OPTIONS}
+      CORS_ALLOWED_HEADERS: ${CORS_ALLOWED_HEADERS:-Content-Type,Authorization}
+      CORS_EXPOSED_HEADERS: ${CORS_EXPOSED_HEADERS:-Authorization}
+      CORS_ALLOW_CREDENTIALS: ${CORS_ALLOW_CREDENTIALS:-true}
+    networks:
+      - pbl6-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
