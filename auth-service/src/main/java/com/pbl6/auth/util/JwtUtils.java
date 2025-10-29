@@ -10,10 +10,8 @@ import org.springframework.stereotype.Component;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.time.Instant;
-import java.util.Collection;
-import java.util.Date;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Component
 public class JwtUtils {
@@ -69,6 +67,39 @@ public class JwtUtils {
             return false;
         }
     }
+
+    // Trả về danh sách role dưới dạng List<String>
+    @SuppressWarnings("unchecked")
+    public List<String> getRolesFromToken(String token) {
+        Claims claims = parseClaims(token);
+        Object rolesObj = claims.get("roles");
+        if (rolesObj instanceof List<?>) {
+            // đảm bảo convert tất cả thành String
+            return ((List<?>) rolesObj).stream()
+                    .map(Object::toString)
+                    .filter(s -> !s.isBlank())
+                    .collect(Collectors.toList());
+        }
+        // fallback: nếu roles là 1 chuỗi (cũ) hoặc null
+        if (rolesObj instanceof String) {
+            String s = (String) rolesObj;
+            return Arrays.stream(s.split(","))
+                    .map(String::trim)
+                    .filter(str -> !str.isBlank())
+                    .collect(Collectors.toList());
+        }
+        return Collections.emptyList();
+    }
+
+    // parseClaims helper (sử dụng key đã cấu hình sẵn)
+    private Claims parseClaims(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(key) // key của bạn
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
 
     // getPhoneFromToken (helper)
     public String getPhoneFromToken(String token) {
