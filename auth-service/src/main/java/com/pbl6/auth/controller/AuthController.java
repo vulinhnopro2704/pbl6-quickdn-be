@@ -16,10 +16,15 @@ public class AuthController {
     public AuthController(AuthService authService){ this.authService = authService; }
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody RegisterRequest req){
-        var u = authService.register(req.phone(), req.password());
-        return ResponseEntity.ok(Map.of("id", u.getId(), "phone", u.getPhone()));
+    public ResponseEntity<?> register(@RequestBody RegisterRequest req) {
+        var user = authService.register(req.phone(), req.password(), req.fullName());
+        return ResponseEntity.ok(Map.of(
+                "id", user.getId(),
+                "phone", user.getPhone(),
+                "fullName", user.getFullName()
+        ));
     }
+
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest req){

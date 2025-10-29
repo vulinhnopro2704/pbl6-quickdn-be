@@ -2,16 +2,20 @@ package com.pbl6.auth.service;
 
 import com.pbl6.auth.dto.AuthResponse;
 import com.pbl6.auth.entity.RefreshToken;
+import com.pbl6.auth.entity.Role;
 import com.pbl6.auth.entity.User;
 import com.pbl6.auth.repository.RefreshTokenRepository;
 import com.pbl6.auth.repository.UserRepository;
 import com.pbl6.auth.util.JwtUtils;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -33,64 +37,97 @@ public class AuthService {
 
     // register
     @Transactional
-    public User register(String phone, String rawPassword) {
-        if (userRepo.existsByPhone(phone)) throw new RuntimeException("Phone already registered");
-        User u = new User();
-        u.setPhone(phone);
-        u.setPassword(encoder.encode(rawPassword));
-        u.setRoles("ROLE_USER");
-        return userRepo.save(u);
+    public User register(String phone, String rawPassword, String fullName) {
+        if (userRepo.existsByPhone(phone)) {
+            throw new RuntimeException("Phone already registered");
+        }
+
+        User user = new User();
+        user.setPhone(phone);
+        user.setPassword(encoder.encode(rawPassword));
+        user.setFullName(fullName);
+        user.getRoles().add(Role.ROLE_USER); // Mặc định cho user mới
+
+        return userRepo.save(user);
     }
+
 
     // login
     @Transactional
     public AuthResponse login(String phone, String rawPassword) {
         User u = userRepo.findByPhone(phone)
                 .orElseThrow(() -> new RuntimeException("Invalid credentials"));
-        if (!encoder.matches(rawPassword, u.getPassword())) throw new RuntimeException("Invalid credentials");
 
+        if (!encoder.matches(rawPassword, u.getPassword())) {
+            throw new RuntimeException("Invalid credentials");
+        }
+
+        if (!u.isEnabled() || !u.isActive()) {
+            throw new RuntimeException("Account not active");
+        }
+
+        // Gọi trực tiếp, không cần convert ở đây
         String access = jwtUtils.generateAccessToken(u.getPhone(), u.getRoles());
         String refresh = jwtUtils.generateRefreshToken();
         Instant expiry = Instant.now().plusMillis(refreshMs);
 
-        // tìm token cũ; nếu có thì cập nhật, nếu không thì tạo mới
         Optional<RefreshToken> existingOpt = refreshRepo.findByUser(u);
         if (existingOpt.isPresent()) {
             RefreshToken rt = existingOpt.get();
             rt.setToken(refresh);
             rt.setExpiryDate(expiry);
-            refreshRepo.save(rt); // update
+            refreshRepo.save(rt);
         } else {
             RefreshToken rt = new RefreshToken();
             rt.setToken(refresh);
             rt.setUser(u);
             rt.setExpiryDate(expiry);
-            refreshRepo.save(rt); // insert
+            refreshRepo.save(rt);
         }
 
         return new AuthResponse(access, refresh, "Bearer");
     }
 
+
+
     @Transactional
     public AuthResponse refresh(String refreshToken) {
         RefreshToken rt = refreshRepo.findByToken(refreshToken)
-                .orElseThrow(() -> new RuntimeException("Invalid refresh token"));
+                .orElseThrow(() -> new BadCredentialsException("Invalid refresh token"));
 
-        if (rt.getExpiryDate().isBefore(Instant.now())) {
-            refreshRepo.delete(rt);
-            throw new RuntimeException("Refresh token expired");
+        // kiểm tra expiry null hoặc expired
+        Instant now = Instant.now();
+        if (rt.getExpiryDate() == null || rt.getExpiryDate().isBefore(now)) {
+            refreshRepo.delete(rt); // remove expired token
+            throw new BadCredentialsException("Refresh token expired");
         }
 
         User u = rt.getUser();
+        if (u == null) {
+            // dữ liệu không hợp lệ: xóa refresh token để an toàn
+            refreshRepo.delete(rt);
+            throw new IllegalStateException("Refresh token has no associated user");
+        }
+
+        // kiểm tra user còn active/enable
+        if (!u.isEnabled() || !u.isActive()) {
+            // Có thể xoá token để an toàn
+            refreshRepo.delete(rt);
+            throw new AccessDeniedException("User account is not active");
+        }
+
+        // Tạo access mới (giữ jwtUtils nhận Collection<Role>)
         String newAccess = jwtUtils.generateAccessToken(u.getPhone(), u.getRoles());
         String newRefresh = jwtUtils.generateRefreshToken();
 
+        // Rotate token: cập nhật bản ghi với token mới và expiry mới
         rt.setToken(newRefresh);
-        rt.setExpiryDate(Instant.now().plusMillis(refreshMs));
+        rt.setExpiryDate(now.plusMillis(refreshMs));
         refreshRepo.save(rt);
 
         return new AuthResponse(newAccess, newRefresh, "Bearer");
     }
+
 
     // refresh, logout unchanged except if you used username parameter before
 //    @Transactional

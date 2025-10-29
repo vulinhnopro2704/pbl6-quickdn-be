@@ -1,5 +1,6 @@
 package com.pbl6.auth.util;
 
+import com.pbl6.auth.entity.Role;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
@@ -9,7 +10,9 @@ import org.springframework.stereotype.Component;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 @Component
@@ -33,11 +36,15 @@ public class JwtUtils {
         key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateAccessToken(String phone, String roles) {
+    public String generateAccessToken(String phone, Collection<Role> roles) {
+        List<String> roleNames = roles.stream()
+                .map(Role::name)
+                .toList();
+
         Instant now = Instant.now();
         return Jwts.builder()
-                .setSubject(phone)          // subject = phone now
-                .claim("roles", roles)
+                .setSubject(phone)
+                .claim("roles", roleNames)
                 .setIssuedAt(Date.from(now))
                 .setExpiration(Date.from(now.plusMillis(accessMs)))
                 .signWith(key, SignatureAlgorithm.HS256)
