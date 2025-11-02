@@ -27,3 +27,11 @@ cors:
     credentials: ${CORS_ALLOW_CREDENTIALS}
   max:
     age: ${CORS_MAX_AGE:3600}
+
+services:
+  auth:
+    url: ${AUTH_SERVICE_URL}
+  goongmap:
+    url: ${GOONGMAP_SERVICE_URL}
+  order:
+    url: ${ORDER_SERVICE_URL}
