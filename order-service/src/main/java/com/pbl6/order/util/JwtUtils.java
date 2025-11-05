@@ -19,13 +19,16 @@ import java.util.stream.Collectors;
 @Component
 public class JwtUtils {
 
-    @Value("${JWT_SECRET}")
+    @Value("${jwt.secret}")
     private String jwtSecret;
 
     private Key key;
 
     @PostConstruct
     public void init() {
+        if (jwtSecret == null || jwtSecret.trim().isEmpty()) {
+            throw new IllegalStateException("JWT_SECRET is not configured. Please set jwt.secret in application.yml");
+        }
         key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 

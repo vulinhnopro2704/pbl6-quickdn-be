@@ -179,6 +179,8 @@ services:
     depends_on:
       order-db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - pbl6-network
     healthcheck:
