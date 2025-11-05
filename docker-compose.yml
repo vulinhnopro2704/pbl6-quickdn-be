@@ -30,7 +30,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-    restart: unless-stopped
+    restart: no
 
   auth-db:
     image: postgres:16-alpine
@@ -53,7 +53,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
-    restart: unless-stopped
+    restart: no
 
   goongmap-db:
     image: postgres:16-alpine
@@ -76,7 +76,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
-    restart: unless-stopped
+    restart: no
 
   order-db:
     image: postgres:16-alpine
@@ -99,7 +99,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
-    restart: unless-stopped
+    restart: no
 
   auth-service:
     image: ghcr.io/${REGISTRY_USERNAME:-vulinhnopro2704}/pbl6-quickdn-be/auth-service:latest
@@ -132,7 +132,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    restart: unless-stopped
+    restart: no
 
   goongmap-service:
     image: ghcr.io/${REGISTRY_USERNAME:-vulinhnopro2704}/pbl6-quickdn-be/goongmap-service:latest
@@ -159,7 +159,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    restart: unless-stopped
+    restart: no
 
   order-service:
     image: ghcr.io/${REGISTRY_USERNAME:-vulinhnopro2704}/pbl6-quickdn-be/order-service:latest
@@ -190,7 +190,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    restart: unless-stopped
+    restart: no
 
   gateway:
     image: ghcr.io/${REGISTRY_USERNAME:-vulinhnopro2704}/pbl6-quickdn-be/gateway:latest
@@ -216,4 +216,4 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    restart: unless-stopped
+    restart: no
