@@ -1,8 +1,5 @@
 version: "3.9"
 
-# Production docker-compose file for VPS deployment
-# This file uses pre-built images from GitHub Container Registry
-
 networks:
   pbl6-network:
     driver: bridge
