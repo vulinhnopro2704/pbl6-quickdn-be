@@ -81,9 +81,9 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.REGISTRY_USERNAME }}/pbl6-quickdn-be/${{ matrix.service }}
           tags: |
             type=raw,value=latest
-            type=sha,prefix={{branch}}-
             type=ref,event=branch
             type=ref,event=pr
+            type=sha,prefix=sha-
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
 
