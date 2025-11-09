@@ -1,0 +1,119 @@
+# Payment Service Configuration
+# All sensitive values must be provided via environment variables
+
+spring:
+  application:
+    name: payment-service
+  
+  # PostgreSQL Database Configuration
+  # REQUIRED ENV VARS:
+  # - DB_HOST (e.g., localhost)
+  # - DB_PORT (e.g., 5432)
+  # - DB_NAME (e.g., payment_db)
+  # - DB_USERNAME
+  # - DB_PASSWORD
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:payment_db}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  
+  # JPA/Hibernate Configuration
+  jpa:
+    database: postgresql
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update  # Use 'validate' or 'none' in production with Flyway/Liquibase
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+  
+  # Jackson JSON Configuration
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+# Server Configuration
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /
+  error:
+    include-message: always
+    include-stacktrace: on_param
+
+# Logging Configuration
+logging:
+  level:
+    root: INFO
+    com.pbl6.payment: DEBUG
+    org.springframework.web: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+# Swagger/OpenAPI Configuration
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operationsSorter: method
+    tagsSorter: alpha
+    tryItOutEnabled: true
+    filter: true
+    displayRequestDuration: true
+    defaultModelsExpandDepth: 2
+    defaultModelExpandDepth: 2
+    showExtensions: true
+    showCommonExtensions: true
+  show-actuator: false
+
+# PayOS API Configuration
+# REQUIRED ENV VARS:
+# - PAYOS_CLIENT_ID: Client ID from payOS dashboard
+# - PAYOS_API_KEY: API Key from payOS dashboard
+# - PAYOS_CHECKSUM_KEY: Checksum key for signature generation
+# 
+# OPTIONAL ENV VARS:
+# - PAYOS_API_BASE_URL (default: https://api-merchant.payos.vn)
+# - PAYOS_PARTNER_CODE: Partner code if participating in partner program
+# - PAYOS_RETURN_URL: Default return URL after successful payment
+# - PAYOS_CANCEL_URL: Default cancel URL when user cancels payment
+payos:
+  api:
+    base-url: ${PAYOS_API_BASE_URL:https://api-merchant.payos.vn}
+    client-id: ${PAYOS_CLIENT_ID}
+    api-key: ${PAYOS_API_KEY}
+    partner-code: ${PAYOS_PARTNER_CODE:}
+    checksum-key: ${PAYOS_CHECKSUM_KEY}
+    default-return-url: ${PAYOS_RETURN_URL:http://localhost:8080/payment/result}
+    default-cancel-url: ${PAYOS_CANCEL_URL:http://localhost:8080/payment/cancel}
+    connection-timeout: 10000
+    read-timeout: 30000
+    max-retries: 2
+    mock-enabled: ${PAYOS_MOCK_ENABLED:false}
+
+# Management & Actuator (Optional)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized

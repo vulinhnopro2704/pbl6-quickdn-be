@@ -8,4 +8,4 @@
 
 rootProject.name = 'PBL6-QUICKDN-BACKEND'
 
-include("gateway", "auth-service", "order-service", "goongmap-service")
+include("gateway", "auth-service", "order-service", "goongmap-service", "payment-service")
