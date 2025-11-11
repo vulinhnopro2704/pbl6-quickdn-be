@@ -9,6 +9,7 @@ volumes:
   auth-db-data:
   goongmap-db-data:
   order-db-data:
+  payment-db-data:
 
 services:
   redis:
@@ -92,6 +93,29 @@ services:
       - pbl6-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${ORDER_DB_USER:-order_user} -d ${ORDER_DB_NAME:-order_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: no
+
+  payment-db:
+    image: postgres:16-alpine
+    container_name: payment-postgres-db
+    ports:
+      - "5435:5432"
+    environment:
+      POSTGRES_DB: ${PAYMENT_DB_NAME:-payment_db}
+      POSTGRES_USER: ${PAYMENT_DB_USER:-payment_user}
+      POSTGRES_PASSWORD: ${PAYMENT_DB_PASSWORD:-payment_password}
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - payment-db-data:/var/lib/postgresql/data
+    networks:
+      - pbl6-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PAYMENT_DB_USER:-payment_user} -d ${PAYMENT_DB_NAME:-payment_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -191,6 +215,37 @@ services:
       start_period: 60s
     restart: no
 
+  payment-service:
+    image: ghcr.io/${REGISTRY_USERNAME:-vulinhnopro2704}/pbl6-quickdn-be/payment-service:latest
+    container_name: payment-service
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SERVER_PORT: 8084
+      DB_HOST: payment-db
+      DB_PORT: 5432
+      DB_NAME: ${PAYMENT_DB_NAME:-payment_db}
+      DB_USER: ${PAYMENT_DB_USER:-payment_user}
+      DB_PASS: ${PAYMENT_DB_PASSWORD:-payment_password}
+      PAYOS_API_KEY: ${PAYOS_API_KEY}
+      PAYOS_CLIENT_ID: ${PAYOS_CLIENT_ID}
+      PAYOS_CHECKSUM_KEY: ${PAYOS_CHECKSUM_KEY}
+      PAYOS_API_BASE_URL: ${PAYOS_API_BASE_URL}
+      PAYOS_MOCK_ENABLED: ${PAYOS_MOCK_ENABLED:-false}
+    depends_on:
+      payment-db:
+        condition: service_healthy
+    networks:
+      - pbl6-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8084/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: no
+
   gateway:
     image: ghcr.io/${REGISTRY_USERNAME:-vulinhnopro2704}/pbl6-quickdn-be/gateway:latest
     container_name: api-gateway
@@ -202,6 +257,7 @@ services:
       AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-http://auth-service:8081}
       GOONGMAP_SERVICE_URL: ${GOONGMAP_SERVICE_URL:-http://goongmap-service:8082}
       ORDER_SERVICE_URL: ${ORDER_SERVICE_URL:-http://order-service:8083}
+      PAYMENT_SERVICE_URL: ${PAYMENT_SERVICE_URL:-http://payment-service:8084}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
       CORS_ALLOWED_METHODS: ${CORS_ALLOWED_METHODS:-GET,POST,PUT,DELETE,OPTIONS}
       CORS_ALLOWED_HEADERS: ${CORS_ALLOWED_HEADERS:-Content-Type,Authorization}
