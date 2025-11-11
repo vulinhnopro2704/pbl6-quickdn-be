@@ -65,7 +65,7 @@ public class OpenApiConfig {
                                 .url("http://localhost:8080")
                                 .description("Development Server"),
                         new Server()
-                                .url("https://api.quickdn.com")
+                                .url("https://quickdn.undo.it")
                                 .description("Production Server")))
                 .tags(List.of(
                         new Tag()

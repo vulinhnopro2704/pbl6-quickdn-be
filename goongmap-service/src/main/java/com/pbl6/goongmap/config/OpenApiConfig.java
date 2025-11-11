@@ -29,6 +29,6 @@ public class OpenApiConfig {
                 .servers(List.of(
                         new Server().url("http://localhost:8082/api/goongmap").description("Local Development Server"),
                         new Server().url("http://localhost:8080/api/goongmap").description("Local Gateway Server"),
-                        new Server().url("https://api.quickdn.com/api/goongmap").description("Production Server")));
+                        new Server().url("https://quickdn.undo.it/api/goongmap").description("Production Server")));
     }
 }

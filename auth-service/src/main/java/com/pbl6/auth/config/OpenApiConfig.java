@@ -32,7 +32,7 @@ public class OpenApiConfig {
                 .servers(List.of(
                         new Server().url("http://localhost:8081/api/auth").description("Local Development Server"),
                         new Server().url("http://localhost:8080/api/auth").description("Local Gateway Server"),
-                        new Server().url("https://api.quickdn.com/api/auth").description("Production Server")))
+                        new Server().url("https://quickdn.undo.it/api/auth").description("Production Server")))
                 .components(new Components()
                         .addSecuritySchemes("bearerAuth", new SecurityScheme()
                                 .type(SecurityScheme.Type.HTTP)
