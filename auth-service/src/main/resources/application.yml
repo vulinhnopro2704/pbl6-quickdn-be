@@ -20,6 +20,8 @@ spring:
 
 server:
   port: ${SERVER_PORT}
+  servlet:
+    context-path: /api/auth
 
 management:
   endpoints:
@@ -29,6 +31,19 @@ management:
   endpoint:
     health:
       show-details: always
+
+# Swagger/OpenAPI Configuration
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operationsSorter: method
+    tagsSorter: alpha
+    tryItOutEnabled: true
+  show-actuator: false
 
 jwt:
   secret: ${JWT_SECRET}

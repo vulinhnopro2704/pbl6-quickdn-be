@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Gateway - Swagger Documentation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 40px;
+            font-size: 2.5rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .service-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .service-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+        }
+
+        .service-card h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .service-card p {
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .swagger-link {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-weight: 600;
+            transition: opacity 0.3s ease;
+            text-align: center;
+        }
+
+        .swagger-link:hover {
+            opacity: 0.9;
+        }
+
+        .info-box {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-top: 30px;
+        }
+
+        .info-box h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .info-box p {
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            background: #10b981;
+            color: white;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            .services-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 PBL6 QuickDN Backend - API Documentation</h1>
+        
+        <div class="services-grid">
+            <div class="service-card">
+                <h2>🔐 Auth Service <span class="badge">Active</span></h2>
+                <p>Authentication and authorization management. User registration, login, logout, and token management.</p>
+                <a href="/api/auth/swagger-ui.html" class="swagger-link" target="_blank">View API Docs</a>
+            </div>
+
+            <div class="service-card">
+                <h2>🗺️ Goongmap Service <span class="badge">Active</span></h2>
+                <p>Integration with Goong Map API. Provides location services, geocoding, and route planning.</p>
+                <a href="/api/goongmap/swagger-ui.html" class="swagger-link" target="_blank">View API Docs</a>
+            </div>
+
+            <div class="service-card">
+                <h2>📦 Order Service <span class="badge">Active</span></h2>
+                <p>Order management system. Create, update, track, and manage delivery orders.</p>
+                <a href="/api/order/swagger-ui.html" class="swagger-link" target="_blank">View API Docs</a>
+            </div>
+
+            <div class="service-card">
+                <h2>💳 Payment Service <span class="badge">Active</span></h2>
+                <p>Payment processing with PayOS integration. Handle transactions, refunds, and payment webhooks.</p>
+                <a href="/api/payment/swagger-ui.html" class="swagger-link" target="_blank">View API Docs</a>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h3>ℹ️ Information</h3>
+            <p>
+                This API Gateway aggregates all microservices' Swagger documentation.
+                Each service's API documentation is accessible through the gateway at <code>/api/{service-name}/swagger-ui.html</code>.
+            </p>
+            <p style="margin-top: 10px;">
+                <strong>Base URL:</strong> <code>http://localhost:8080</code> (local) | <code>https://your-domain.com</code> (production)
+            </p>
+        </div>
+    </div>
+</body>
+</html>
