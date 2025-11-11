@@ -22,6 +22,9 @@ public class ApiGatewayApplication {
 	@Value("${services.order.url:http://localhost:8083}")
 	private String orderServiceUrl;
 
+	@Value("${services.payment.url:http://localhost:8084}")
+	private String paymentServiceUrl;
+
 	public static void main(String[] args) {
 		SpringApplication.run(ApiGatewayApplication.class, args);
 	}
@@ -33,6 +36,7 @@ public class ApiGatewayApplication {
 			logger.info("AUTH_SERVICE_URL={}", authServiceUrl);
 			logger.info("GOONGMAP_SERVICE_URL={}", goongmapServiceUrl);
 			logger.info("ORDER_SERVICE_URL={}", orderServiceUrl);
+			logger.info("PAYMENT_SERVICE_URL={}", paymentServiceUrl);
 		};
 	}
 
