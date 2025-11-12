@@ -125,8 +125,8 @@ services:
   auth-service:
     image: ghcr.io/${REGISTRY_USERNAME:-vulinhnopro2704}/pbl6-quickdn-be/auth-service:latest
     container_name: auth-service
-    ports:
-      - "8081:8081"
+    expose:
+      - "8081"
     environment:
       SPRING_CONFIG_IMPORT: ""
       SERVER_PORT: 8081
@@ -158,8 +158,8 @@ services:
   goongmap-service:
     image: ghcr.io/${REGISTRY_USERNAME:-vulinhnopro2704}/pbl6-quickdn-be/goongmap-service:latest
     container_name: goongmap-service
-    ports:
-      - "8082:8082"
+    expose:
+      - "8082"
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
       SERVER_PORT: 8082
@@ -185,8 +185,8 @@ services:
   order-service:
     image: ghcr.io/${REGISTRY_USERNAME:-vulinhnopro2704}/pbl6-quickdn-be/order-service:latest
     container_name: order-service
-    ports:
-      - "8083:8083"
+    expose:
+      - "8083"
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
       SERVER_PORT: 8083
@@ -218,8 +218,8 @@ services:
   payment-service:
     image: ghcr.io/${REGISTRY_USERNAME:-vulinhnopro2704}/pbl6-quickdn-be/payment-service:latest
     container_name: payment-service
-    ports:
-      - "8084:8084"
+    expose:
+      - "8084"
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
       SERVER_PORT: 8084

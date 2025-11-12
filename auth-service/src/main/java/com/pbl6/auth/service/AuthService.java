@@ -46,7 +46,7 @@ public class AuthService {
         user.setPhone(phone);
         user.setPassword(encoder.encode(rawPassword));
         user.setFullName(fullName);
-        user.getRoles().add(Role.ROLE_USER); // Mặc định cho user mới
+        user.getRoles().add(Role.ROLE_USER);
 
         return userRepo.save(user);
     }
