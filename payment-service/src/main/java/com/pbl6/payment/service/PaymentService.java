@@ -10,6 +10,7 @@ import com.pbl6.payment.dto.payos.PayosCreatePaymentResponse;
 import com.pbl6.payment.entity.Payment;
 import com.pbl6.payment.entity.PaymentEvent;
 import com.pbl6.payment.entity.PaymentStatus;
+import com.pbl6.payment.exception.PaymentCreationException;
 import com.pbl6.payment.exception.PayosApiException;
 import com.pbl6.payment.repository.PaymentEventRepository;
 import com.pbl6.payment.repository.PaymentRepository;
@@ -120,7 +121,17 @@ public class PaymentService {
             log.error("Failed to create payment in payOS: orderCode={}", 
                 request.getOrderCode(), e);
             
-            throw new RuntimeException("Failed to create payment: " + e.getMessage(), e);
+            throw new PaymentCreationException("Failed to create payment: " + e.getMessage(), e);
+            
+        } catch (Exception e) {
+            // Mark payment as FAILED for any unexpected error
+            payment.setStatus(PaymentStatus.FAILED);
+            paymentRepository.save(payment);
+            
+            log.error("Unexpected error creating payment: orderCode={}", 
+                request.getOrderCode(), e);
+            
+            throw new PaymentCreationException("Failed to create payment: " + e.getMessage(), e);
         }
     }
     

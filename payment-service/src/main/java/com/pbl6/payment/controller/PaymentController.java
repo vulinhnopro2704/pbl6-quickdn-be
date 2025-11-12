@@ -4,6 +4,7 @@ import com.pbl6.payment.dto.CreatePaymentRequest;
 import com.pbl6.payment.dto.PaymentResponse;
 import com.pbl6.payment.dto.payos.PayosWebhookPayload;
 import com.pbl6.payment.entity.Payment;
+import com.pbl6.payment.exception.PaymentNotFoundException;
 import com.pbl6.payment.service.PaymentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -159,14 +160,8 @@ public class PaymentController {
         log.info("Received create payment request: orderCode={}, amount={}", 
             request.getOrderCode(), request.getAmount());
         
-        try {
-            PaymentResponse response = paymentService.createPayment(request);
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-            
-        } catch (Exception e) {
-            log.error("Failed to create payment", e);
-            throw new RuntimeException("Failed to create payment: " + e.getMessage(), e);
-        }
+        PaymentResponse response = paymentService.createPayment(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
     
     /**
@@ -241,10 +236,10 @@ public class PaymentController {
         
         log.info("Getting payment: orderCode={}", orderCode);
         
-        return paymentService.getPaymentByOrderCode(orderCode)
-            .map(this::buildPaymentResponse)
-            .map(ResponseEntity::ok)
-            .orElse(ResponseEntity.notFound().build());
+        Payment payment = paymentService.getPaymentByOrderCode(orderCode)
+            .orElseThrow(() -> new PaymentNotFoundException(orderCode));
+        
+        return ResponseEntity.ok(buildPaymentResponse(payment));
     }
     
     /**
