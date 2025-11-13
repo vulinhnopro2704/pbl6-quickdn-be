@@ -24,16 +24,8 @@ public class Routes {
 
     @Bean
     public RouterFunction<ServerResponse> authServiceRoute() {
-        // Use leading slashes on paths and the configured service URL (works inside Docker network)
         return GatewayRouterFunctions.route("auth-service")
-                .route(RequestPredicates.path("/api/auth/test"), HandlerFunctions.http(authServiceUrl))
-                .route(RequestPredicates.path("/api/auth/register"), HandlerFunctions.http(authServiceUrl))
-                .route(RequestPredicates.path("/api/auth/login"), HandlerFunctions.http(authServiceUrl))
-                .route(RequestPredicates.path("/api/auth/logout"), HandlerFunctions.http(authServiceUrl))
-                // Swagger/OpenAPI endpoints for auth-service
-                .route(RequestPredicates.path("/api/auth/v3/api-docs/**"), HandlerFunctions.http(authServiceUrl))
-                .route(RequestPredicates.path("/api/auth/swagger-ui/**"), HandlerFunctions.http(authServiceUrl))
-                .route(RequestPredicates.path("/api/auth/swagger-ui.html"), HandlerFunctions.http(authServiceUrl))
+                .route(RequestPredicates.path("/api/auth/**"), HandlerFunctions.http(authServiceUrl))
                 .build();
     }
 
@@ -41,7 +33,6 @@ public class Routes {
     public RouterFunction<ServerResponse> goongMapServiceRoute() {
         return GatewayRouterFunctions.route("goongmap-service")
                 .route(RequestPredicates.path("/api/goongmap/test"), HandlerFunctions.http(goongmapServiceUrl))
-                // Swagger/OpenAPI endpoints for goongmap-service
                 .route(RequestPredicates.path("/api/goongmap/v3/api-docs/**"), HandlerFunctions.http(goongmapServiceUrl))
                 .route(RequestPredicates.path("/api/goongmap/swagger-ui/**"), HandlerFunctions.http(goongmapServiceUrl))
                 .route(RequestPredicates.path("/api/goongmap/swagger-ui.html"), HandlerFunctions.http(goongmapServiceUrl))
