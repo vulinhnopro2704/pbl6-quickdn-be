@@ -4,18 +4,17 @@ import com.pbl6.auth.dto.AuthResponse;
 import com.pbl6.auth.entity.RefreshToken;
 import com.pbl6.auth.entity.Role;
 import com.pbl6.auth.entity.User;
+import com.pbl6.auth.exception.BadRequestException;
+import com.pbl6.auth.exception.UnauthorizedException;
 import com.pbl6.auth.repository.RefreshTokenRepository;
 import com.pbl6.auth.repository.UserRepository;
 import com.pbl6.auth.util.JwtUtils;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -39,7 +38,22 @@ public class AuthService {
     @Transactional
     public User register(String phone, String rawPassword, String fullName) {
         if (userRepo.existsByPhone(phone)) {
-            throw new RuntimeException("Phone already registered");
+            throw new BadRequestException("Phone number already exists");
+        }
+
+        // Validate phone format (Vietnamese phone number: 10-11 digits starting with 0)
+        if (phone == null || !phone.matches("^0\\d{9,10}$")) {
+            throw new BadRequestException("Invalid phone number format");
+        }
+
+        // Validate password
+        if (rawPassword == null || rawPassword.length() < 8) {
+            throw new BadRequestException("Password must be at least 8 characters");
+        }
+
+        // Validate full name
+        if (fullName == null || fullName.trim().isEmpty()) {
+            throw new BadRequestException("Full name is required");
         }
 
         User user = new User();
@@ -55,15 +69,24 @@ public class AuthService {
     // login
     @Transactional
     public AuthResponse login(String phone, String rawPassword) {
+        // Validate input
+        if (phone == null || phone.trim().isEmpty()) {
+            throw new BadRequestException("Phone number is required");
+        }
+        
+        if (rawPassword == null || rawPassword.trim().isEmpty()) {
+            throw new BadRequestException("Password is required");
+        }
+
         User u = userRepo.findByPhone(phone)
-                .orElseThrow(() -> new RuntimeException("Invalid credentials"));
+                .orElseThrow(() -> new UnauthorizedException("Invalid phone number or password"));
 
         if (!encoder.matches(rawPassword, u.getPassword())) {
-            throw new RuntimeException("Invalid credentials");
+            throw new UnauthorizedException("Invalid phone number or password");
         }
 
         if (!u.isEnabled() || !u.isActive()) {
-            throw new RuntimeException("Account not active");
+            throw new UnauthorizedException("Account is not active or has been disabled");
         }
 
         // Gọi trực tiếp, không cần convert ở đây
@@ -92,28 +115,33 @@ public class AuthService {
 
     @Transactional
     public AuthResponse refresh(String refreshToken) {
+        // Validate input
+        if (refreshToken == null || refreshToken.trim().isEmpty()) {
+            throw new BadRequestException("Refresh token is required");
+        }
+
         RefreshToken rt = refreshRepo.findByToken(refreshToken)
-                .orElseThrow(() -> new BadCredentialsException("Invalid refresh token"));
+                .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
 
         // kiểm tra expiry null hoặc expired
         Instant now = Instant.now();
         if (rt.getExpiryDate() == null || rt.getExpiryDate().isBefore(now)) {
             refreshRepo.delete(rt); // remove expired token
-            throw new BadCredentialsException("Refresh token expired");
+            throw new UnauthorizedException("Refresh token has expired");
         }
 
         User u = rt.getUser();
         if (u == null) {
             // dữ liệu không hợp lệ: xóa refresh token để an toàn
             refreshRepo.delete(rt);
-            throw new IllegalStateException("Refresh token has no associated user");
+            throw new BadRequestException("Refresh token has no associated user");
         }
 
         // kiểm tra user còn active/enable
         if (!u.isEnabled() || !u.isActive()) {
             // Có thể xoá token để an toàn
             refreshRepo.delete(rt);
-            throw new AccessDeniedException("User account is not active");
+            throw new UnauthorizedException("User account is not active or has been disabled");
         }
 
         // Tạo access mới (giữ jwtUtils nhận Collection<Role>)

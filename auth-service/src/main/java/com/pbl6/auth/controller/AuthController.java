@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -112,7 +113,7 @@ public class AuthController {
                 )
             )
         )
-        @RequestBody RegisterRequest req
+        @Valid @RequestBody RegisterRequest req
     ) {
         var user = authService.register(req.phone(), req.password(), req.fullName());
         return ResponseEntity.ok(Map.of(
@@ -216,7 +217,7 @@ public class AuthController {
                 )
             )
         )
-        @RequestBody LoginRequest req
+        @Valid @RequestBody LoginRequest req
     ){
         return ResponseEntity.ok(authService.login(req.phone(), req.password()));
     }

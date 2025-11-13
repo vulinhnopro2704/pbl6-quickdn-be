@@ -26,8 +26,11 @@ dependencies {
     // Actuator for health checks
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
 
-    // Swagger/OpenAPI
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0'
+    // Swagger/OpenAPI - updated to 2.7.0 for Spring Boot 3.5+ compatibility
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.7.0'
+
+    // Bean Validation (required for @Valid annotations)
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
 
     // JWT
     implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
