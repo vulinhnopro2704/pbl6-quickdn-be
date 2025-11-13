@@ -40,7 +40,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (StringUtils.hasText(token) && jwtUtils.validate(token)) {
 
                 // Lấy subject (phone hoặc userId tuỳ bạn set khi tạo token)
-                String subject = jwtUtils.getPhoneFromToken(token); // hoặc getSubject(token)
+                String subject = jwtUtils.getSubject(token); // hoặc getSubject(token)
 
                 // Lấy roles từ token (cố gắng trả về List<String>)
                 List<String> roleNames = jwtUtils.getRolesFromToken(token); // <- implement helper trong jwtUtils

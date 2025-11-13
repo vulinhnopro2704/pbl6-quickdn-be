@@ -34,14 +34,15 @@ public class JwtUtils {
         key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateAccessToken(String phone, Collection<Role> roles) {
+    public String generateAccessToken(UUID userId, String phone, Collection<Role> roles) {
         List<String> roleNames = roles.stream()
                 .map(Role::name)
                 .toList();
 
         Instant now = Instant.now();
         return Jwts.builder()
-                .setSubject(phone)
+                .setSubject(userId.toString())       // <-- subject = UUID
+                .claim("phone", phone)               // keep phone for convenience
                 .claim("roles", roleNames)
                 .setIssuedAt(Date.from(now))
                 .setExpiration(Date.from(now.plusMillis(accessMs)))
@@ -103,8 +104,8 @@ public class JwtUtils {
 
     // getPhoneFromToken (helper)
     public String getPhoneFromToken(String token) {
-        return Jwts.parserBuilder().setSigningKey(key).build()
-                .parseClaimsJws(token).getBody().getSubject();
+        Claims claims = parseClaims(token);
+        return claims.get("phone", String.class);
     }
     public Claims getAllClaims(String token) {
         return Jwts.parserBuilder().setSigningKey(key).build()
