@@ -30,6 +30,7 @@ public class Routes {
         return GatewayRouterFunctions.route("order-service")
                 .route(RequestPredicates.path("api/order/test"), HandlerFunctions.http("http://localhost:8083"))
                 .route(RequestPredicates.path("api/order"), HandlerFunctions.http("http://localhost:8083"))
+                .route(RequestPredicates.path("api/order/create-order"), HandlerFunctions.http("http://localhost:8083"))
                 .build();
     }
 }
