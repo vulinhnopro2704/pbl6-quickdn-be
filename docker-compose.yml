@@ -137,6 +137,7 @@ services:
       DB_PASS: ${AUTH_DB_PASSWORD:-auth_password}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      REDIS_PASS: ${REDIS_PASS}
       JWT_SECRET: ${JWT_SECRET}
       JWT_ACCESS_EXP_MS: ${JWT_ACCESS_EXP_MS:-3600000}
       JWT_REFRESH_EXP_MS: ${JWT_REFRESH_EXP_MS:-86400000}
@@ -196,6 +197,7 @@ services:
       DB_USER: ${ORDER_DB_USER:-order_user}
       DB_PASS: ${ORDER_DB_PASSWORD:-order_password}
       REDIS_HOST: redis
+      REDIS_PASS: ${REDIS_PASS}
       REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET}
       JWT_ACCESS_EXP_MS: ${JWT_ACCESS_EXP_MS:-3600000}

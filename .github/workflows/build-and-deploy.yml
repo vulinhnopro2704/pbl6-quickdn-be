@@ -177,6 +177,9 @@ jobs:
             JWT_ACCESS_EXP_MS=${{ secrets.JWT_ACCESS_EXP_MS }}
             JWT_REFRESH_EXP_MS=${{ secrets.JWT_REFRESH_EXP_MS }}
             
+            # Redis Configuration
+            REDIS_PASS=${{ secrets.REDIS_PASS }}
+            
             # API Keys
             GOONGMAP_API_KEY=${{ secrets.GOONGMAP_API_KEY }}
             
