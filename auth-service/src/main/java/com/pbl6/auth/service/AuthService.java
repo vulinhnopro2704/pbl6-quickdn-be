@@ -90,7 +90,7 @@ public class AuthService {
         }
 
         // Gọi trực tiếp, không cần convert ở đây
-        String access = jwtUtils.generateAccessToken(u.getPhone(), u.getRoles());
+        String access = jwtUtils.generateAccessToken(u.getId(), u.getPhone(), u.getRoles());
         String refresh = jwtUtils.generateRefreshToken();
         Instant expiry = Instant.now().plusMillis(refreshMs);
 
@@ -145,7 +145,7 @@ public class AuthService {
         }
 
         // Tạo access mới (giữ jwtUtils nhận Collection<Role>)
-        String newAccess = jwtUtils.generateAccessToken(u.getPhone(), u.getRoles());
+        String newAccess = jwtUtils.generateAccessToken(u.getId(), u.getPhone(), u.getRoles());
         String newRefresh = jwtUtils.generateRefreshToken();
 
         // Rotate token: cập nhật bản ghi với token mới và expiry mới
