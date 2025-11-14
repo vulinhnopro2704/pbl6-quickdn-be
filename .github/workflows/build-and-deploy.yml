@@ -15,9 +15,101 @@ env:
   REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
   
 jobs:
+  detect-changes:
+    name: Detect Changed Services
+    runs-on: ubuntu-latest
+    outputs:
+      gateway: ${{ steps.filter.outputs.gateway }}
+      auth-service: ${{ steps.filter.outputs.auth-service }}
+      order-service: ${{ steps.filter.outputs.order-service }}
+      goongmap-service: ${{ steps.filter.outputs.goongmap-service }}
+      payment-service: ${{ steps.filter.outputs.payment-service }}
+      any-service-changed: ${{ steps.filter.outputs.any-service-changed }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for service changes
+        id: filter
+        run: |
+          # For push events, compare with previous commit
+          # For PRs, compare with base branch
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          else
+            # For push, compare with the previous commit
+            BASE_SHA="${{ github.event.before }}"
+            # If this is the first commit, compare with empty tree
+            if [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+              BASE_SHA=$(git hash-object -t tree /dev/null)
+            fi
+          fi
+          
+          echo "Comparing $BASE_SHA with HEAD"
+          
+          # Check each service for changes
+          GATEWAY_CHANGED=false
+          AUTH_CHANGED=false
+          ORDER_CHANGED=false
+          GOONGMAP_CHANGED=false
+          PAYMENT_CHANGED=false
+          ANY_CHANGED=false
+          
+          if git diff --name-only $BASE_SHA HEAD | grep -E '^gateway/|^build.gradle$|^settings.gradle$|^gradle.properties$' > /dev/null; then
+            GATEWAY_CHANGED=true
+            ANY_CHANGED=true
+            echo "✓ Gateway service changed"
+          fi
+          
+          if git diff --name-only $BASE_SHA HEAD | grep -E '^auth-service/|^build.gradle$|^settings.gradle$|^gradle.properties$' > /dev/null; then
+            AUTH_CHANGED=true
+            ANY_CHANGED=true
+            echo "✓ Auth service changed"
+          fi
+          
+          if git diff --name-only $BASE_SHA HEAD | grep -E '^order-service/|^build.gradle$|^settings.gradle$|^gradle.properties$' > /dev/null; then
+            ORDER_CHANGED=true
+            ANY_CHANGED=true
+            echo "✓ Order service changed"
+          fi
+          
+          if git diff --name-only $BASE_SHA HEAD | grep -E '^goongmap-service/|^build.gradle$|^settings.gradle$|^gradle.properties$' > /dev/null; then
+            GOONGMAP_CHANGED=true
+            ANY_CHANGED=true
+            echo "✓ Goongmap service changed"
+          fi
+          
+          if git diff --name-only $BASE_SHA HEAD | grep -E '^payment-service/|^build.gradle$|^settings.gradle$|^gradle.properties$' > /dev/null; then
+            PAYMENT_CHANGED=true
+            ANY_CHANGED=true
+            echo "✓ Payment service changed"
+          fi
+          
+          # For workflow_dispatch, build all services
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            GATEWAY_CHANGED=true
+            AUTH_CHANGED=true
+            ORDER_CHANGED=true
+            GOONGMAP_CHANGED=true
+            PAYMENT_CHANGED=true
+            ANY_CHANGED=true
+            echo "Manual trigger - building all services"
+          fi
+          
+          echo "gateway=$GATEWAY_CHANGED" >> $GITHUB_OUTPUT
+          echo "auth-service=$AUTH_CHANGED" >> $GITHUB_OUTPUT
+          echo "order-service=$ORDER_CHANGED" >> $GITHUB_OUTPUT
+          echo "goongmap-service=$GOONGMAP_CHANGED" >> $GITHUB_OUTPUT
+          echo "payment-service=$PAYMENT_CHANGED" >> $GITHUB_OUTPUT
+          echo "any-service-changed=$ANY_CHANGED" >> $GITHUB_OUTPUT
+
   build-and-push:
     name: Build and Push Images
     runs-on: ubuntu-latest
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.any-service-changed == 'true'
     environment: pbl6-backend-production
     
     permissions:
@@ -33,10 +125,26 @@ jobs:
           - goongmap-service
           - payment-service
     steps:
+      - name: Check if service changed
+        id: should-build
+        run: |
+          SERVICE="${{ matrix.service }}"
+          CHANGED="${{ needs.detect-changes.outputs[matrix.service] }}"
+          
+          if [ "$CHANGED" = "true" ]; then
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            echo "✓ Building $SERVICE (changed)"
+          else
+            echo "should_build=false" >> $GITHUB_OUTPUT
+            echo "⊘ Skipping $SERVICE (no changes)"
+          fi
+
       - name: Checkout code
+        if: steps.should-build.outputs.should_build == 'true'
         uses: actions/checkout@v4
 
       - name: Set up JDK 21
+        if: steps.should-build.outputs.should_build == 'true'
         uses: actions/setup-java@v4
         with:
           java-version: '21'
@@ -44,15 +152,18 @@ jobs:
           cache: 'gradle'
 
       - name: Grant execute permission for gradlew
+        if: steps.should-build.outputs.should_build == 'true'
         run: |
           chmod +x ${{ matrix.service }}/gradlew
 
       - name: Build with Gradle
+        if: steps.should-build.outputs.should_build == 'true'
         run: |
           cd ${{ matrix.service }}
           ./gradlew clean bootJar --no-daemon
 
       - name: Verify JAR file exists
+        if: steps.should-build.outputs.should_build == 'true'
         run: |
           shopt -s nullglob
           FILES=(${{ matrix.service }}/build/libs/*.jar)
@@ -66,9 +177,11 @@ jobs:
           fi
 
       - name: Set up Docker Buildx
+        if: steps.should-build.outputs.should_build == 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to GitHub Container Registry
+        if: steps.should-build.outputs.should_build == 'true'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -76,6 +189,7 @@ jobs:
           password: ${{ env.REGISTRY_TOKEN }}
 
       - name: Extract metadata for Docker
+        if: steps.should-build.outputs.should_build == 'true'
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -89,6 +203,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
 
       - name: Build and push Docker image
+        if: steps.should-build.outputs.should_build == 'true'
         uses: docker/build-push-action@v5
         with:
           context: ./${{ matrix.service }}
@@ -100,17 +215,42 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Image digest
+        if: steps.should-build.outputs.should_build == 'true'
         run: echo "Image pushed for ${{ matrix.service }}"
 
   deploy:
     name: Deploy to VPS
     runs-on: ubuntu-latest
-    needs: [build-and-push]
-    if: github.ref == 'refs/heads/main'
+    needs: [detect-changes, build-and-push]
+    if: github.ref == 'refs/heads/main' && needs.detect-changes.outputs.any-service-changed == 'true'
     environment: pbl6-backend-production
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Prepare deployment info
+        id: deploy-info
+        run: |
+          CHANGED_SERVICES=""
+          
+          if [ "${{ needs.detect-changes.outputs.gateway }}" = "true" ]; then
+            CHANGED_SERVICES="$CHANGED_SERVICES gateway"
+          fi
+          if [ "${{ needs.detect-changes.outputs.auth-service }}" = "true" ]; then
+            CHANGED_SERVICES="$CHANGED_SERVICES auth-service"
+          fi
+          if [ "${{ needs.detect-changes.outputs.order-service }}" = "true" ]; then
+            CHANGED_SERVICES="$CHANGED_SERVICES order-service"
+          fi
+          if [ "${{ needs.detect-changes.outputs.goongmap-service }}" = "true" ]; then
+            CHANGED_SERVICES="$CHANGED_SERVICES goongmap-service"
+          fi
+          if [ "${{ needs.detect-changes.outputs.payment-service }}" = "true" ]; then
+            CHANGED_SERVICES="$CHANGED_SERVICES payment-service"
+          fi
+          
+          echo "changed_services=$CHANGED_SERVICES" >> $GITHUB_OUTPUT
+          echo "Services to deploy: $CHANGED_SERVICES"
 
       - name: Create project directory if not exists
         uses: appleboy/ssh-action@v1.0.3
@@ -227,6 +367,86 @@ jobs:
             mv docker-compose.yml docker-compose.yml || true
             echo "docker-compose.yml updated successfully"
 
+      - name: Copy nginx.conf to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          source: "nginx.conf"
+          target: "~/pbl6-backend/"
+          strip_components: 0
+
+      - name: Deploy nginx configuration
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            set -e
+            
+            echo "==================================="
+            echo "Deploying nginx configuration..."
+            echo "==================================="
+            
+            # Determine sudo command
+            SUDO_PW="${{ secrets.VPS_SUDO_PASSWORD }}"
+            if sudo -n true 2>/dev/null; then
+              SUDO="sudo"
+              SUDO_MODE="noninteractive"
+            elif [ -n "$SUDO_PW" ] && echo "$SUDO_PW" | sudo -S -p "" true 2>/dev/null; then
+              SUDO="sudo -S"
+              SUDO_MODE="withpassword"
+            else
+              echo "Error: Cannot execute sudo commands. Please configure passwordless sudo or provide VPS_SUDO_PASSWORD secret."
+              exit 1
+            fi
+            
+            sudo_cmd() {
+              if [ "$SUDO_MODE" = "withpassword" ]; then
+                echo "$SUDO_PW" | sudo -S -p "" "$@"
+              else
+                sudo "$@"
+              fi
+            }
+            
+            # Backup existing nginx config if exists
+            if [ -f /etc/nginx/sites-available/pbl6.conf ]; then
+              sudo_cmd cp /etc/nginx/sites-available/pbl6.conf /etc/nginx/sites-available/pbl6.conf.backup.$(date +%Y%m%d_%H%M%S)
+              echo "Backed up existing nginx config"
+            fi
+            
+            # Copy new nginx config
+            sudo_cmd cp ~/pbl6-backend/nginx.conf /etc/nginx/sites-available/pbl6.conf
+            echo "Copied nginx.conf to /etc/nginx/sites-available/pbl6.conf"
+            
+            # Create symbolic link in sites-enabled if not exists
+            if [ ! -L /etc/nginx/sites-enabled/pbl6.conf ]; then
+              sudo_cmd ln -s /etc/nginx/sites-available/pbl6.conf /etc/nginx/sites-enabled/pbl6.conf
+              echo "Created symbolic link in sites-enabled"
+            fi
+            
+            # Remove default nginx config if exists
+            if [ -L /etc/nginx/sites-enabled/default ]; then
+              sudo_cmd rm /etc/nginx/sites-enabled/default
+              echo "Removed default nginx config"
+            fi
+            
+            # Test nginx configuration
+            echo "Testing nginx configuration..."
+            sudo_cmd nginx -t
+            
+            # Reload nginx
+            echo "Reloading nginx..."
+            sudo_cmd systemctl reload nginx
+            
+            echo "==================================="
+            echo "Nginx configuration deployed successfully!"
+            echo "==================================="
+
       - name: Deploy to VPS via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -239,6 +459,7 @@ jobs:
             
             echo "==================================="
             echo "Starting deployment process..."
+            echo "Changed services: ${{ steps.deploy-info.outputs.changed_services }}"
             echo "==================================="
             
             # Navigate to docker-compose directory
@@ -285,18 +506,21 @@ jobs:
               echo "${{ secrets.REGISTRY_TOKEN }}" | $DOCKER login ${{ env.REGISTRY }} -u ${{ secrets.REGISTRY_USERNAME }} --password-stdin
             fi
             
-            echo "Pulling latest images for all services..."
-            docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/gateway:latest || true
-            docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/auth-service:latest || true
-            docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/order-service:latest || true
-            docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/goongmap-service:latest || true
-            docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/payment-service:latest || true
+            # Pull and recreate only changed services
+            CHANGED_SERVICES="${{ steps.deploy-info.outputs.changed_services }}"
+            
+            echo "Pulling latest images for changed services..."
+            for service in $CHANGED_SERVICES; do
+              echo "Pulling $service..."
+              docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/$service:latest || true
+            done
 
-            echo "Recreating all services with latest images..."
-            docker_compose_cmd up -d --force-recreate
+            echo "Recreating changed services with latest images..."
+            docker_compose_cmd up -d --force-recreate $CHANGED_SERVICES
             
             echo "==================================="
             echo "Deployment completed successfully!"
+            echo "Updated services: $CHANGED_SERVICES"
             echo "==================================="
             
             # Show status
