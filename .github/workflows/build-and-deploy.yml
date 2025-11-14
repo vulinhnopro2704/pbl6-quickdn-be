@@ -112,14 +112,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Prepare deployment info
-        id: deploy-info
-        run: |
-          # Deploy all services
-          CHANGED_SERVICES="gateway auth-service order-service goongmap-service payment-service"
-          echo "changed_services=$CHANGED_SERVICES" >> $GITHUB_OUTPUT
-          echo "Services to deploy: $CHANGED_SERVICES"
-
       - name: Create project directory if not exists
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -235,89 +227,6 @@ jobs:
             mv docker-compose.yml docker-compose.yml || true
             echo "docker-compose.yml updated successfully"
 
-      - name: Copy nginx.conf to VPS
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USERNAME }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
-          source: "nginx.conf"
-          target: "~/pbl6-backend/"
-          strip_components: 0
-
-      - name: Deploy nginx configuration
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USERNAME }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
-          script_stop: true
-          script: |
-            bash << 'EOF'
-            set -e
-            
-            echo "==================================="
-            echo "Deploying nginx configuration..."
-            echo "==================================="
-            
-            # Determine sudo command
-            SUDO_PW="${{ secrets.VPS_SUDO_PASSWORD }}"
-            if sudo -n true 2>/dev/null; then
-              SUDO="sudo"
-              SUDO_MODE="noninteractive"
-            elif [ -n "$SUDO_PW" ] && echo "$SUDO_PW" | sudo -S -p "" true 2>/dev/null; then
-              SUDO="sudo -S"
-              SUDO_MODE="withpassword"
-            else
-              echo "Error: Cannot execute sudo commands. Please configure passwordless sudo or provide VPS_SUDO_PASSWORD secret."
-              exit 1
-            fi
-            
-            sudo_cmd() {
-              if [ "$SUDO_MODE" = "withpassword" ]; then
-                echo "$SUDO_PW" | sudo -S -p "" "$@"
-              else
-                sudo "$@"
-              fi
-            }
-            
-            # Backup existing nginx config if exists
-            if [ -f /etc/nginx/sites-available/pbl6.conf ]; then
-              sudo_cmd cp /etc/nginx/sites-available/pbl6.conf /etc/nginx/sites-available/pbl6.conf.backup.$(date +%Y%m%d_%H%M%S)
-              echo "Backed up existing nginx config"
-            fi
-            
-            # Copy new nginx config
-            sudo_cmd cp ~/pbl6-backend/nginx.conf /etc/nginx/sites-available/pbl6.conf
-            echo "Copied nginx.conf to /etc/nginx/sites-available/pbl6.conf"
-            
-            # Create symbolic link in sites-enabled if not exists
-            if [ ! -L /etc/nginx/sites-enabled/pbl6.conf ]; then
-              sudo_cmd ln -s /etc/nginx/sites-available/pbl6.conf /etc/nginx/sites-enabled/pbl6.conf
-              echo "Created symbolic link in sites-enabled"
-            fi
-            
-            # Remove default nginx config if exists
-            if [ -L /etc/nginx/sites-enabled/default ]; then
-              sudo_cmd rm /etc/nginx/sites-enabled/default
-              echo "Removed default nginx config"
-            fi
-            
-            # Test nginx configuration
-            echo "Testing nginx configuration..."
-            sudo_cmd nginx -t
-            
-            # Reload nginx
-            echo "Reloading nginx..."
-            sudo_cmd systemctl reload nginx
-            
-            echo "==================================="
-            echo "Nginx configuration deployed successfully!"
-            echo "==================================="
-            EOF
-
       - name: Deploy to VPS via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -325,15 +234,11 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
-          script_stop: true
-          command_timeout: 30m
           script: |
-            bash << 'EOF'
             set -e
             
             echo "==================================="
             echo "Starting deployment process..."
-            echo "Changed services: ${{ steps.deploy-info.outputs.changed_services }}"
             echo "==================================="
             
             # Navigate to docker-compose directory
@@ -375,38 +280,23 @@ jobs:
             
             # Login to GitHub Container Registry
             if [ "$SUDO_MODE" = "withpassword" ]; then
-              # Use password via sudo -S: echo token | sudo -S -p "" docker login ... --password-stdin
-              echo "${{ secrets.REGISTRY_TOKEN }}" | sudo -S -p "" docker login ${{ env.REGISTRY }} -u ${{ secrets.REGISTRY_USERNAME }} --password-stdin
+              echo "${{ secrets.REGISTRY_TOKEN }}" | echo "$SUDO_PW" | sudo -S -p "" docker login ${{ env.REGISTRY }} -u ${{ secrets.REGISTRY_USERNAME }} --password-stdin
             else
               echo "${{ secrets.REGISTRY_TOKEN }}" | $DOCKER login ${{ env.REGISTRY }} -u ${{ secrets.REGISTRY_USERNAME }} --password-stdin
             fi
             
-            # Pull and recreate only changed services
-            CHANGED_SERVICES="${{ steps.deploy-info.outputs.changed_services }}"
+            echo "Pulling latest images for all services..."
+            docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/gateway:latest || true
+            docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/auth-service:latest || true
+            docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/order-service:latest || true
+            docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/goongmap-service:latest || true
+            docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/payment-service:latest || true
 
-            # Split services into a list (works in both bash and zsh)
-            echo "Pulling latest images for changed services..."
-            for service in $CHANGED_SERVICES; do
-              # trim whitespace
-              service=$(echo "$service" | xargs)
-              if [ -z "$service" ]; then
-                continue
-              fi
-              echo "Pulling $service..."
-              docker_cmd pull "${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/${service}:latest" || true
-            done
-
-            echo "Recreating changed services with latest images..."
-            # Recreate services - pass them as separate arguments
-            if [ -n "$CHANGED_SERVICES" ]; then
-              docker_compose_cmd up -d --force-recreate $CHANGED_SERVICES
-            else
-              echo "No services to recreate"
-            fi
+            echo "Recreating all services with latest images..."
+            docker_compose_cmd up -d --force-recreate
             
             echo "==================================="
             echo "Deployment completed successfully!"
-            echo "Updated services: $CHANGED_SERVICES"
             echo "==================================="
             
             # Show status
@@ -418,7 +308,6 @@ jobs:
             
             # Logout from registry
             docker_cmd logout ${{ env.REGISTRY }}
-            EOF
 
       - name: Verify deployment
         uses: appleboy/ssh-action@v1.0.3
@@ -427,9 +316,7 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
-          script_stop: true
           script: |
-            bash << 'EOF'
             cd ~/pbl6-backend
             
             # Determine docker command with proper privileges (supports sudo password via secret)
@@ -473,4 +360,3 @@ jobs:
             echo ""
             echo "Recent logs:"
             docker_compose_cmd logs --tail=50
-            EOF
