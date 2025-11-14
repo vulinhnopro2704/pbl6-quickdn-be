@@ -1,5 +1,3 @@
-version: "3.9"
-
 networks:
   pbl6-network:
     driver: bridge

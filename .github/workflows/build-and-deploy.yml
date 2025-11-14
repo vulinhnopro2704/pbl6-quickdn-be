@@ -232,23 +232,46 @@ jobs:
         id: deploy-info
         run: |
           CHANGED_SERVICES=""
-          
+
+          # Append without leading spaces: if empty -> assign, else append with a space
           if [ "${{ needs.detect-changes.outputs.gateway }}" = "true" ]; then
-            CHANGED_SERVICES="$CHANGED_SERVICES gateway"
+            if [ -z "$CHANGED_SERVICES" ]; then
+              CHANGED_SERVICES="gateway"
+            else
+              CHANGED_SERVICES="$CHANGED_SERVICES gateway"
+            fi
           fi
           if [ "${{ needs.detect-changes.outputs.auth-service }}" = "true" ]; then
-            CHANGED_SERVICES="$CHANGED_SERVICES auth-service"
+            if [ -z "$CHANGED_SERVICES" ]; then
+              CHANGED_SERVICES="auth-service"
+            else
+              CHANGED_SERVICES="$CHANGED_SERVICES auth-service"
+            fi
           fi
           if [ "${{ needs.detect-changes.outputs.order-service }}" = "true" ]; then
-            CHANGED_SERVICES="$CHANGED_SERVICES order-service"
+            if [ -z "$CHANGED_SERVICES" ]; then
+              CHANGED_SERVICES="order-service"
+            else
+              CHANGED_SERVICES="$CHANGED_SERVICES order-service"
+            fi
           fi
           if [ "${{ needs.detect-changes.outputs.goongmap-service }}" = "true" ]; then
-            CHANGED_SERVICES="$CHANGED_SERVICES goongmap-service"
+            if [ -z "$CHANGED_SERVICES" ]; then
+              CHANGED_SERVICES="goongmap-service"
+            else
+              CHANGED_SERVICES="$CHANGED_SERVICES goongmap-service"
+            fi
           fi
           if [ "${{ needs.detect-changes.outputs.payment-service }}" = "true" ]; then
-            CHANGED_SERVICES="$CHANGED_SERVICES payment-service"
+            if [ -z "$CHANGED_SERVICES" ]; then
+              CHANGED_SERVICES="payment-service"
+            else
+              CHANGED_SERVICES="$CHANGED_SERVICES payment-service"
+            fi
           fi
-          
+
+          # Trim any accidental leading/trailing whitespace and emit
+          CHANGED_SERVICES=$(echo "$CHANGED_SERVICES" | xargs)
           echo "changed_services=$CHANGED_SERVICES" >> $GITHUB_OUTPUT
           echo "Services to deploy: $CHANGED_SERVICES"
 
@@ -501,22 +524,40 @@ jobs:
             
             # Login to GitHub Container Registry
             if [ "$SUDO_MODE" = "withpassword" ]; then
-              echo "${{ secrets.REGISTRY_TOKEN }}" | echo "$SUDO_PW" | sudo -S -p "" docker login ${{ env.REGISTRY }} -u ${{ secrets.REGISTRY_USERNAME }} --password-stdin
+              # Use password via sudo -S: echo token | sudo -S -p "" docker login ... --password-stdin
+              echo "${{ secrets.REGISTRY_TOKEN }}" | sudo -S -p "" docker login ${{ env.REGISTRY }} -u ${{ secrets.REGISTRY_USERNAME }} --password-stdin
             else
               echo "${{ secrets.REGISTRY_TOKEN }}" | $DOCKER login ${{ env.REGISTRY }} -u ${{ secrets.REGISTRY_USERNAME }} --password-stdin
             fi
             
             # Pull and recreate only changed services
             CHANGED_SERVICES="${{ steps.deploy-info.outputs.changed_services }}"
-            
-            echo "Pulling latest images for changed services..."
-            for service in $CHANGED_SERVICES; do
-              echo "Pulling $service..."
-              docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/$service:latest || true
-            done
+
+            # Split into array and trim entries to avoid empty/whitespace-only names
+            read -r -a SERVICES_ARR <<< "$CHANGED_SERVICES"
+
+            if [ ${#SERVICES_ARR[@]} -eq 0 ]; then
+              echo "No changed services to pull"
+            else
+              echo "Pulling latest images for changed services..."
+              for service in "${SERVICES_ARR[@]}"; do
+                # trim whitespace
+                service=$(echo "$service" | xargs)
+                if [ -z "$service" ]; then
+                  continue
+                fi
+                echo "Pulling $service..."
+                docker_cmd pull "${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/${service}:latest" || true
+              done
+            fi
 
             echo "Recreating changed services with latest images..."
-            docker_compose_cmd up -d --force-recreate $CHANGED_SERVICES
+            # Use array expansion so service names don't include accidental whitespace
+            if [ ${#SERVICES_ARR[@]} -gt 0 ]; then
+              docker_compose_cmd up -d --force-recreate "${SERVICES_ARR[@]}"
+            else
+              echo "No services to recreate"
+            fi
             
             echo "==================================="
             echo "Deployment completed successfully!"
