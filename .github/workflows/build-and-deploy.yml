@@ -253,7 +253,9 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
+          script_stop: true
           script: |
+            bash << 'EOF'
             set -e
             
             echo "==================================="
@@ -314,6 +316,7 @@ jobs:
             echo "==================================="
             echo "Nginx configuration deployed successfully!"
             echo "==================================="
+            EOF
 
       - name: Deploy to VPS via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -322,7 +325,10 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
+          script_stop: true
+          command_timeout: 30m
           script: |
+            bash << 'EOF'
             set -e
             
             echo "==================================="
@@ -378,28 +384,22 @@ jobs:
             # Pull and recreate only changed services
             CHANGED_SERVICES="${{ steps.deploy-info.outputs.changed_services }}"
 
-            # Split into array and trim entries to avoid empty/whitespace-only names
-            read -r -a SERVICES_ARR <<< "$CHANGED_SERVICES"
-
-            if [ ${#SERVICES_ARR[@]} -eq 0 ]; then
-              echo "No changed services to pull"
-            else
-              echo "Pulling latest images for changed services..."
-              for service in "${SERVICES_ARR[@]}"; do
-                # trim whitespace
-                service=$(echo "$service" | xargs)
-                if [ -z "$service" ]; then
-                  continue
-                fi
-                echo "Pulling $service..."
-                docker_cmd pull "${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/${service}:latest" || true
-              done
-            fi
+            # Split services into a list (works in both bash and zsh)
+            echo "Pulling latest images for changed services..."
+            for service in $CHANGED_SERVICES; do
+              # trim whitespace
+              service=$(echo "$service" | xargs)
+              if [ -z "$service" ]; then
+                continue
+              fi
+              echo "Pulling $service..."
+              docker_cmd pull "${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/${service}:latest" || true
+            done
 
             echo "Recreating changed services with latest images..."
-            # Use array expansion so service names don't include accidental whitespace
-            if [ ${#SERVICES_ARR[@]} -gt 0 ]; then
-              docker_compose_cmd up -d --force-recreate "${SERVICES_ARR[@]}"
+            # Recreate services - pass them as separate arguments
+            if [ -n "$CHANGED_SERVICES" ]; then
+              docker_compose_cmd up -d --force-recreate $CHANGED_SERVICES
             else
               echo "No services to recreate"
             fi
@@ -418,6 +418,7 @@ jobs:
             
             # Logout from registry
             docker_cmd logout ${{ env.REGISTRY }}
+            EOF
 
       - name: Verify deployment
         uses: appleboy/ssh-action@v1.0.3
@@ -426,7 +427,9 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
+          script_stop: true
           script: |
+            bash << 'EOF'
             cd ~/pbl6-backend
             
             # Determine docker command with proper privileges (supports sudo password via secret)
@@ -470,3 +473,4 @@ jobs:
             echo ""
             echo "Recent logs:"
             docker_compose_cmd logs --tail=50
+            EOF
