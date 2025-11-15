@@ -106,12 +106,23 @@ payos:
     max-retries: 2
     mock-enabled: ${PAYOS_MOCK_ENABLED:false}
 
-# Management & Actuator (Optional)
+# Management & Actuator
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,prometheus,metrics
   endpoint:
     health:
       show-details: when-authorized
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        http.server.requests: 50ms,100ms,200ms,500ms,1s,2s
+    tags:
+      application: ${spring.application.name}

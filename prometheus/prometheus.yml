@@ -46,32 +46,32 @@ scrape_configs:
           service: 'auth-service'
           tier: 'backend'
 
-  # Order Service metrics (optional - can enable later)
-  # - job_name: 'order-service'
-  #   metrics_path: '/api/order/actuator/prometheus'
-  #   scrape_interval: 10s
-  #   static_configs:
-  #     - targets: ['order-service:8083']
-  #       labels:
-  #         service: 'order-service'
-  #         tier: 'backend'
+  # Order Service metrics
+  - job_name: 'order-service'
+    metrics_path: '/api/order/actuator/prometheus'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['order-service:8083']
+        labels:
+          service: 'order-service'
+          tier: 'backend'
 
-  # Payment Service metrics (optional - can enable later)
-  # - job_name: 'payment-service'
-  #   metrics_path: '/api/payment/actuator/prometheus'
-  #   scrape_interval: 10s
-  #   static_configs:
-  #     - targets: ['payment-service:8084']
-  #       labels:
-  #         service: 'payment-service'
-  #         tier: 'backend'
+  # Payment Service metrics
+  - job_name: 'payment-service'
+    metrics_path: '/api/payment/actuator/prometheus'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['payment-service:8084']
+        labels:
+          service: 'payment-service'
+          tier: 'backend'
 
-  # Goongmap Service metrics (optional - can enable later)
-  # - job_name: 'goongmap-service'
-  #   metrics_path: '/api/goongmap/actuator/prometheus'
-  #   scrape_interval: 10s
-  #   static_configs:
-  #     - targets: ['goongmap-service:8082']
-  #       labels:
-  #         service: 'goongmap-service'
-  #         tier: 'backend'
+  # Goongmap Service metrics
+  - job_name: 'goongmap-service'
+    metrics_path: '/api/goongmap/actuator/prometheus'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['goongmap-service:8082']
+        labels:
+          service: 'goongmap-service'
+          tier: 'backend'

@@ -614,9 +614,24 @@
             "selected": false,
             "text": "auth-service",
             "value": "auth-service"
+          },
+          {
+            "selected": false,
+            "text": "order-service",
+            "value": "order-service"
+          },
+          {
+            "selected": false,
+            "text": "payment-service",
+            "value": "payment-service"
+          },
+          {
+            "selected": false,
+            "text": "goongmap-service",
+            "value": "goongmap-service"
           }
         ],
-        "query": "api-gateway,auth-service",
+        "query": "api-gateway,auth-service,order-service,payment-service,goongmap-service",
         "queryValue": "",
         "skipUrlSync": false,
         "type": "custom"
