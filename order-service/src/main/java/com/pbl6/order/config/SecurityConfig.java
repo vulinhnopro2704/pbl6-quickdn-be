@@ -57,13 +57,13 @@ public class SecurityConfig {
                 log.warn("Unauthorized request to: {} - {}", request.getRequestURI(), authException.getMessage());
                 response.setContentType("application/json");
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"" + authException.getMessage() + "\"}");
+                response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"Chưa xác thực\"}");
             })
             .accessDeniedHandler((request, response, accessDeniedException) -> {
                 log.warn("Access denied to: {} - {}", request.getRequestURI(), accessDeniedException.getMessage());
                 response.setContentType("application/json");
                 response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                response.getWriter().write("{\"error\":\"Forbidden\",\"message\":\"" + accessDeniedException.getMessage() + "\"}");
+                response.getWriter().write("{\"error\":\"Forbidden\",\"message\":\"Không có quyền truy cập\"}");
             })
         );
 

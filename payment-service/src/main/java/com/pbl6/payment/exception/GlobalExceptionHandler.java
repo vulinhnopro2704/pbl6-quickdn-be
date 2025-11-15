@@ -131,7 +131,7 @@ public class GlobalExceptionHandler {
             .timestamp(LocalDateTime.now())
             .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
             .error("Internal Server Error")
-            .message("Failed to create payment: " + ex.getMessage())
+            .message("Không thể tạo thanh toán: " + ex.getMessage())
             .path(request.getRequestURI())
             .build();
         
@@ -152,7 +152,7 @@ public class GlobalExceptionHandler {
             .timestamp(LocalDateTime.now())
             .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
             .error("Internal Server Error")
-            .message("An unexpected error occurred: " + ex.getMessage())
+            .message("Đã xảy ra lỗi không mong đợi: " + ex.getMessage())
             .path(request.getRequestURI())
             .build();
         
