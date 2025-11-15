@@ -199,23 +199,27 @@ jobs:
             
             # Spring Profile
             SPRING_PROFILES_ACTIVE=${{ secrets.SPRING_PROFILES_ACTIVE }}
+            
+            # Grafana Configuration (Optional - có default values)
+            GRAFANA_ADMIN_USER=${{ secrets.GRAFANA_ADMIN_USER }}
+            GRAFANA_ADMIN_PASSWORD=${{ secrets.GRAFANA_ADMIN_PASSWORD }}
             EOF
             
             echo ".env file created successfully"
             ls -la .env
 
-      - name: Copy docker-compose.yml to VPS
+      - name: Copy docker-compose.yml and monitoring configs to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
-          source: "docker-compose.yml"
+          source: "docker-compose.yml,prometheus/,grafana/"
           target: "~/pbl6-backend/"
           strip_components: 0
 
-      - name: Rename docker-compose file on VPS
+      - name: Verify monitoring configs on VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -224,8 +228,16 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           script: |
             cd ~/pbl6-backend
-            mv docker-compose.yml docker-compose.yml || true
-            echo "docker-compose.yml updated successfully"
+            echo "Verifying configuration files..."
+            ls -la
+            echo ""
+            echo "Prometheus config:"
+            ls -la prometheus/ || echo "Warning: prometheus/ directory not found"
+            echo ""
+            echo "Grafana provisioning:"
+            ls -la grafana/provisioning/ || echo "Warning: grafana/provisioning/ directory not found"
+            echo ""
+            echo "Configuration files verified successfully"
 
       - name: Deploy to VPS via SSH
         uses: appleboy/ssh-action@v1.0.3

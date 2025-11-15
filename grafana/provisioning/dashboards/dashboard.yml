@@ -1,0 +1,14 @@
+# Grafana Dashboard Provisioning
+apiVersion: 1
+
+providers:
+  - name: 'PBL6 QuickDN Dashboards'
+    orgId: 1
+    folder: 'PBL6'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: true
