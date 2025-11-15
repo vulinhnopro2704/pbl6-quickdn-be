@@ -43,6 +43,7 @@ jobs:
         with:
           python-version: '3.11'
           cache: 'pip'
+          cache-dependency-path: 'ai-service/requirements.txt'
 
       - name: Verify AI Service requirements
         if: matrix.service == 'ai-service'
