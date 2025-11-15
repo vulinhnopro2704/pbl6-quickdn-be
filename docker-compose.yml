@@ -15,6 +15,7 @@ volumes:
   payment-service-logs:
   prometheus-data:
   grafana-data:
+  ai-db-data:
 
 services:
   redis:
@@ -121,6 +122,29 @@ services:
       - pbl6-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${PAYMENT_DB_USER:-payment_user} -d ${PAYMENT_DB_NAME:-payment_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: no
+
+  ai-db:
+    image: postgres:16-alpine
+    container_name: ai-postgres-db
+    ports:
+      - "5436:5432"
+    environment:
+      POSTGRES_DB: ${AI_DB_NAME}
+      POSTGRES_USER: ${AI_DB_USER}
+      POSTGRES_PASSWORD: ${AI_DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - ai-db-data:/var/lib/postgresql/data
+    networks:
+      - pbl6-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AI_DB_USER} -d ${AI_DB_NAME}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -265,6 +289,35 @@ services:
       start_period: 60s
     restart: no
 
+  ai-service:
+    image: ghcr.io/${REGISTRY_USERNAME}/pbl6-quickdn-be/ai-service:latest
+    container_name: ai-service
+    ports:
+      - "8085:8000"
+    environment:
+      CLOUD_NAME: ${AI_CLOUDINARY_CLOUD_NAME}
+      API_KEY: ${AI_CLOUDINARY_API_KEY}
+      API_SECRET: ${AI_CLOUDINARY_API_SECRET}
+      API_ENDPOINT: ${AI_API_ENDPOINT}
+      FACE_SIMILARITY_THRESHOLD: ${AI_FACE_SIMILARITY_THRESHOLD:-0.5}
+      DB_HOST: ai-db
+      DB_PORT: 5432
+      DB_NAME: ${AI_DB_NAME}
+      DB_USER: ${AI_DB_USER}
+      DB_PASSWORD: ${AI_DB_PASSWORD}
+    depends_on:
+      ai-db:
+        condition: service_healthy
+    networks:
+      - pbl6-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: no
+
   gateway:
     image: ghcr.io/${REGISTRY_USERNAME:-vulinhnopro2704}/pbl6-quickdn-be/gateway:latest
     container_name: api-gateway
@@ -277,8 +330,9 @@ services:
       GOONGMAP_SERVICE_URL: ${GOONGMAP_SERVICE_URL:-http://goongmap-service:8082}
       ORDER_SERVICE_URL: ${ORDER_SERVICE_URL:-http://order-service:8083}
       PAYMENT_SERVICE_URL: ${PAYMENT_SERVICE_URL:-http://payment-service:8084}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://quickdn.undo.it,http://localhost:*}
-      CORS_ALLOWED_METHODS: ${CORS_ALLOWED_METHODS:-GET,POST,PUT,DELETE,OPTIONS,PATCH}
+      AI_SERVICE_URL: ${AI_SERVICE_URL:-http://ai-service:8000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      CORS_ALLOWED_METHODS: ${CORS_ALLOWED_METHODS:-GET,POST,PUT,DELETE,PATCH,OPTIONS}
       CORS_ALLOWED_HEADERS: ${CORS_ALLOWED_HEADERS:-*}
       CORS_EXPOSED_HEADERS: ${CORS_EXPOSED_HEADERS:-Authorization,Content-Type}
       CORS_ALLOW_CREDENTIALS: ${CORS_ALLOW_CREDENTIALS:-true}
