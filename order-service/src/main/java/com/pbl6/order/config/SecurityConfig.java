@@ -57,7 +57,7 @@ public class SecurityConfig {
                 log.warn("Unauthorized request to: {} - {}", request.getRequestURI(), authException.getMessage());
                 response.setContentType("application/json");
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"Chưa xác thực\"}");
+                response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"Chưa xác thực, kiểm tra token bị hết hạn hoặc không hợp lệ\"}");
             })
             .accessDeniedHandler((request, response, accessDeniedException) -> {
                 log.warn("Access denied to: {} - {}", request.getRequestURI(), accessDeniedException.getMessage());
