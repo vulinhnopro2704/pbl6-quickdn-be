@@ -22,6 +22,9 @@ public class Routes {
     @Value("${services.payment.url}")
     private String paymentServiceUrl;
 
+    @Value("${services.ai.url}")
+    private String aiServiceUrl;
+
     @Bean
     public RouterFunction<ServerResponse> authServiceRoute() {
         return GatewayRouterFunctions.route("auth-service")
@@ -47,6 +50,13 @@ public class Routes {
     public RouterFunction<ServerResponse> paymentServiceRoute() {
         return GatewayRouterFunctions.route("payment-service")
                 .route(RequestPredicates.path("/api/payment/**"), HandlerFunctions.http(paymentServiceUrl))
+                .build();
+    }
+
+    @Bean
+    public RouterFunction<ServerResponse> aiServiceRoute() {
+        return GatewayRouterFunctions.route("ai-service")
+                .route(RequestPredicates.path("/api/ai/**"), HandlerFunctions.http(aiServiceUrl))
                 .build();
     }
 }

@@ -63,3 +63,5 @@ services:
     url: ${ORDER_SERVICE_URL}
   payment:
     url: ${PAYMENT_SERVICE_URL}
+  ai:
+    url: ${AI_SERVICE_URL}
