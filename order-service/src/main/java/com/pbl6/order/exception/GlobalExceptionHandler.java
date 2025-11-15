@@ -50,17 +50,15 @@ public class GlobalExceptionHandler {
             (a, b) -> a + "; " + b
         ));
 
-    ErrorResponse body = new ErrorResponse(
-        HttpStatus.BAD_REQUEST.getReasonPhrase(),
-        "Validation failed",
-        HttpStatus.BAD_REQUEST.value(),
-        request.getRequestURI(),
-        details
-    );
-    return ResponseEntity.badRequest().body(body);
-    }
-
-    // Constraint violations on single params, path variables etc.
+        ErrorResponse body = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                "Xác thực thất bại",
+                HttpStatus.BAD_REQUEST.value(),
+                request.getRequestURI(),
+                details
+        );
+        return ResponseEntity.badRequest().body(body);
+    }    // Constraint violations on single params, path variables etc.
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ErrorResponse> handleConstraintViolation(ConstraintViolationException ex, HttpServletRequest request) {
         Map<String, String> details = new HashMap<>();
@@ -70,7 +68,7 @@ public class GlobalExceptionHandler {
         }
         ErrorResponse body = new ErrorResponse(
                 HttpStatus.BAD_REQUEST.getReasonPhrase(),
-                "Constraint violation",
+                "Vi phạm ràng buộc",
                 HttpStatus.BAD_REQUEST.value(),
                 request.getRequestURI(),
                 details
@@ -81,7 +79,7 @@ public class GlobalExceptionHandler {
     // JSON parse issues (invalid JSON or field type mismatch)
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(HttpMessageNotReadableException ex, HttpServletRequest request) {
-        String msg = "Malformed JSON request";
+        String msg = "Yêu cầu JSON không đúng định dạng";
         Throwable cause = ex.getCause();
         Map<String, String> details = null;
 
@@ -91,8 +89,8 @@ public class GlobalExceptionHandler {
                     .map(JsonMappingException.Reference::getFieldName)
                     .filter(Objects::nonNull).collect(Collectors.joining("."));
             String value = String.valueOf(ife.getValue());
-            msg = String.format("Invalid value '%s' for field '%s'", value, field);
-            details = Map.of(field, "invalid value or type");
+            msg = String.format("Giá trị không hợp lệ '%s' cho trường '%s'", value, field);
+            details = Map.of(field, "giá trị hoặc kiểu không hợp lệ");
         } else {
             // default include exception text minimally
             msg = ex.getMessage();
@@ -113,10 +111,10 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleMissingParam(MissingServletRequestParameterException ex, HttpServletRequest request) {
         ErrorResponse body = new ErrorResponse(
                 HttpStatus.BAD_REQUEST.getReasonPhrase(),
-                "Missing parameter: " + ex.getParameterName(),
+                "Thiếu tham số: " + ex.getParameterName(),
                 HttpStatus.BAD_REQUEST.value(),
                 request.getRequestURI(),
-                Map.of(ex.getParameterName(), "required")
+                Map.of(ex.getParameterName(), "bắt buộc")
         );
         return ResponseEntity.badRequest().body(body);
     }
@@ -127,7 +125,7 @@ public class GlobalExceptionHandler {
         log.error("Unhandled exception", ex);
         ErrorResponse body = new ErrorResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
-                "An unexpected error occurred",
+                "Đã xảy ra lỗi không mong đợi",
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 request.getRequestURI()
         );

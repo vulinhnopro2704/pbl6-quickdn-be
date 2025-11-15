@@ -121,7 +121,7 @@ public class PaymentService {
             log.error("Failed to create payment in payOS: orderCode={}", 
                 request.getOrderCode(), e);
             
-            throw new PaymentCreationException("Failed to create payment: " + e.getMessage(), e);
+            throw new PaymentCreationException("Không thể tạo thanh toán: " + e.getMessage(), e);
             
         } catch (Exception e) {
             // Mark payment as FAILED for any unexpected error
@@ -131,7 +131,7 @@ public class PaymentService {
             log.error("Unexpected error creating payment: orderCode={}", 
                 request.getOrderCode(), e);
             
-            throw new PaymentCreationException("Failed to create payment: " + e.getMessage(), e);
+            throw new PaymentCreationException("Không thể tạo thanh toán: " + e.getMessage(), e);
         }
     }
     

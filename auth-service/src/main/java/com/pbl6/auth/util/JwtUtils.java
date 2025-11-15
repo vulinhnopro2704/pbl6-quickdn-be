@@ -29,7 +29,7 @@ public class JwtUtils {
     @PostConstruct
     public void init() {
         if (jwtSecret == null || jwtSecret.trim().isEmpty()) {
-            throw new IllegalStateException("JWT_SECRET is not configured. Please set jwt.secret in application.yml");
+            throw new IllegalStateException("JWT_SECRET chưa được cấu hình. Vui lòng thiết lập jwt.secret trong application.yml");
         }
         key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }

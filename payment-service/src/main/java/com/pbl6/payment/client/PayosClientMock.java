@@ -60,7 +60,7 @@ public class PayosClientMock implements PayosClient {
         PayosCreatePaymentResponse.PaymentData paymentData = payments.get(id);
         
         if (paymentData == null) {
-            throw new RuntimeException("Payment not found: " + id);
+            throw new RuntimeException("Không tìm thấy thanh toán: " + id);
         }
         
         PayosGetPaymentResponse.PaymentInfo info = PayosGetPaymentResponse.PaymentInfo.builder()
@@ -87,7 +87,7 @@ public class PayosClientMock implements PayosClient {
         PayosCreatePaymentResponse.PaymentData paymentData = payments.get(id);
         
         if (paymentData == null) {
-            throw new RuntimeException("Payment not found: " + id);
+            throw new RuntimeException("Không tìm thấy thanh toán: " + id);
         }
         
         // Update status to CANCELLED

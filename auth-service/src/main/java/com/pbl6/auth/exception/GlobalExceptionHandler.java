@@ -16,7 +16,6 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.HashMap;
@@ -70,7 +69,7 @@ public class GlobalExceptionHandler {
         
         ErrorResponse errorResponse = new ErrorResponse(
             "Bad Request",
-            "Validation failed for one or more fields",
+            "Xác thực thất bại cho một hoặc nhiều trường",
             HttpStatus.BAD_REQUEST.value(),
             request.getRequestURI(),
             validationErrors
@@ -91,7 +90,7 @@ public class GlobalExceptionHandler {
         
         ErrorResponse errorResponse = new ErrorResponse(
             "Unauthorized",
-            "Invalid phone number or password",
+            "Số điện thoại hoặc mật khẩu không hợp lệ",
             HttpStatus.UNAUTHORIZED.value(),
             request.getRequestURI()
         );
@@ -111,7 +110,7 @@ public class GlobalExceptionHandler {
         
         ErrorResponse errorResponse = new ErrorResponse(
             "Unauthorized",
-            "Authentication failed: " + ex.getMessage(),
+            "Xác thực thất bại: " + ex.getMessage(),
             HttpStatus.UNAUTHORIZED.value(),
             request.getRequestURI()
         );
@@ -131,7 +130,7 @@ public class GlobalExceptionHandler {
         
         ErrorResponse errorResponse = new ErrorResponse(
             "Forbidden",
-            "You don't have permission to access this resource",
+            "Bạn không có quyền truy cập tài nguyên này",
             HttpStatus.FORBIDDEN.value(),
             request.getRequestURI()
         );
@@ -151,7 +150,7 @@ public class GlobalExceptionHandler {
         
         ErrorResponse errorResponse = new ErrorResponse(
             "Unauthorized",
-            "Token has expired",
+            "Token đã hết hạn",
             HttpStatus.UNAUTHORIZED.value(),
             request.getRequestURI()
         );
@@ -171,7 +170,7 @@ public class GlobalExceptionHandler {
         
         ErrorResponse errorResponse = new ErrorResponse(
             "Unauthorized",
-            "Invalid token format",
+            "Định dạng token không hợp lệ",
             HttpStatus.UNAUTHORIZED.value(),
             request.getRequestURI()
         );
@@ -191,7 +190,7 @@ public class GlobalExceptionHandler {
         
         ErrorResponse errorResponse = new ErrorResponse(
             "Unauthorized",
-            "Invalid token signature",
+            "Chữ ký token không hợp lệ",
             HttpStatus.UNAUTHORIZED.value(),
             request.getRequestURI()
         );
@@ -230,7 +229,7 @@ public class GlobalExceptionHandler {
         logger.error("Type mismatch: {}", ex.getMessage());
         
         String message = String.format(
-            "Invalid value '%s' for parameter '%s'. Expected type: %s",
+            "Giá trị không hợp lệ '%s' cho tham số '%s'. Loại dữ liệu mong đợi: %s",
             ex.getValue(),
             ex.getName(),
             ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown"
@@ -258,7 +257,7 @@ public class GlobalExceptionHandler {
         
         ErrorResponse errorResponse = new ErrorResponse(
             "Internal Server Error",
-            "An unexpected error occurred",
+            "Đã xảy ra lỗi không mong đợi",
             HttpStatus.INTERNAL_SERVER_ERROR.value(),
             request.getRequestURI()
         );
