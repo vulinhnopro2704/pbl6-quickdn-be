@@ -32,11 +32,31 @@ jobs:
           - order-service
           - goongmap-service
           - payment-service
+          - ai-service
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Python for AI Service
+        if: matrix.service == 'ai-service'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Verify AI Service requirements
+        if: matrix.service == 'ai-service'
+        run: |
+          cd ai-service
+          if [ ! -f requirements.txt ]; then
+            echo "Error: requirements.txt not found in ai-service/"
+            exit 1
+          fi
+          echo "Found requirements.txt"
+          cat requirements.txt
+
       - name: Set up JDK 21
+        if: matrix.service != 'ai-service'
         uses: actions/setup-java@v4
         with:
           java-version: '21'
@@ -44,15 +64,18 @@ jobs:
           cache: 'gradle'
 
       - name: Grant execute permission for gradlew
+        if: matrix.service != 'ai-service'
         run: |
           chmod +x ${{ matrix.service }}/gradlew
 
       - name: Build with Gradle
+        if: matrix.service != 'ai-service'
         run: |
           cd ${{ matrix.service }}
           ./gradlew clean bootJar --no-daemon
 
       - name: Verify JAR file exists
+        if: matrix.service != 'ai-service'
         run: |
           shopt -s nullglob
           FILES=(${{ matrix.service }}/build/libs/*.jar)
@@ -151,6 +174,7 @@ jobs:
             GOONGMAP_SERVICE_URL=${{ secrets.GOONGMAP_SERVICE_URL }}
             ORDER_SERVICE_URL=${{ secrets.ORDER_SERVICE_URL }}
             PAYMENT_SERVICE_URL=${{ secrets.PAYMENT_SERVICE_URL }}
+            AI_SERVICE_URL=${{ secrets.AI_SERVICE_URL }}
             
             # Database Configuration - Auth Service
             AUTH_DB_NAME=${{ secrets.AUTH_DB_NAME }}
@@ -171,6 +195,18 @@ jobs:
             PAYMENT_DB_NAME=${{ secrets.PAYMENT_DB_NAME }}
             PAYMENT_DB_USER=${{ secrets.PAYMENT_DB_USER }}
             PAYMENT_DB_PASSWORD=${{ secrets.PAYMENT_DB_PASSWORD }}
+            
+            # Database Configuration - AI Service
+            AI_DB_NAME=${{ secrets.AI_DB_NAME }}
+            AI_DB_USER=${{ secrets.AI_DB_USER }}
+            AI_DB_PASSWORD=${{ secrets.AI_DB_PASSWORD }}
+            
+            # AI Service Configuration
+            AI_CLOUDINARY_CLOUD_NAME=${{ secrets.AI_CLOUDINARY_CLOUD_NAME }}
+            AI_CLOUDINARY_API_KEY=${{ secrets.AI_CLOUDINARY_API_KEY }}
+            AI_CLOUDINARY_API_SECRET=${{ secrets.AI_CLOUDINARY_API_SECRET }}
+            AI_API_ENDPOINT=${{ secrets.AI_API_ENDPOINT }}
+            AI_FACE_SIMILARITY_THRESHOLD=${{ secrets.AI_FACE_SIMILARITY_THRESHOLD }}
             
             # JWT Configuration
             JWT_SECRET=${{ secrets.JWT_SECRET }}
@@ -303,6 +339,7 @@ jobs:
             docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/order-service:latest || true
             docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/goongmap-service:latest || true
             docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/payment-service:latest || true
+            docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/ai-service:latest || true
 
             echo "Recreating all services with latest images..."
             docker_compose_cmd up -d --force-recreate
