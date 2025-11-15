@@ -2,6 +2,7 @@ package com.pbl6.order.exception;
 
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
@@ -14,11 +15,10 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-
-import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -30,50 +30,49 @@ public class GlobalExceptionHandler {
 
     // App-level exceptions (business)
     @ExceptionHandler(AppException.class)
-    public ResponseEntity<ErrorResponse> handleApp(AppException ex) {
+    public ResponseEntity<ErrorResponse> handleApp(AppException ex, HttpServletRequest request) {
         ErrorResponse body = new ErrorResponse(
-                OffsetDateTime.now(),
-                ex.getStatus().value(),
                 ex.getStatus().getReasonPhrase(),
                 ex.getMessage(),
-                null
+                ex.getStatus().value(),
+                request.getRequestURI()
         );
         return ResponseEntity.status(ex.getStatus()).body(body);
     }
 
     // Validation errors from @Valid on @RequestBody (DTO fields)
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> handleMethodArgNotValid(MethodArgumentNotValidException ex) {
-        Map<String, String> details = ex.getBindingResult().getFieldErrors().stream()
-                .collect(Collectors.toMap(
-                        FieldError::getField,
-                        fe -> fe.getDefaultMessage() == null ? "invalid" : fe.getDefaultMessage(),
-                        (a, b) -> a + "; " + b
-                ));
+    public ResponseEntity<ErrorResponse> handleMethodArgNotValid(MethodArgumentNotValidException ex, HttpServletRequest request) {
+    Map<String, String> details = ex.getBindingResult().getFieldErrors().stream()
+        .collect(Collectors.toMap(
+            FieldError::getField,
+            fe -> fe.getDefaultMessage() == null ? "invalid" : fe.getDefaultMessage(),
+            (a, b) -> a + "; " + b
+        ));
 
-        ErrorResponse body = new ErrorResponse(
-                OffsetDateTime.now(),
-                HttpStatus.BAD_REQUEST.value(),
-                HttpStatus.BAD_REQUEST.getReasonPhrase(),
-                "Validation failed",
-                details
-        );
-        return ResponseEntity.badRequest().body(body);
+    ErrorResponse body = new ErrorResponse(
+        HttpStatus.BAD_REQUEST.getReasonPhrase(),
+        "Validation failed",
+        HttpStatus.BAD_REQUEST.value(),
+        request.getRequestURI(),
+        details
+    );
+    return ResponseEntity.badRequest().body(body);
     }
 
     // Constraint violations on single params, path variables etc.
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<ErrorResponse> handleConstraintViolation(ConstraintViolationException ex) {
+    public ResponseEntity<ErrorResponse> handleConstraintViolation(ConstraintViolationException ex, HttpServletRequest request) {
         Map<String, String> details = new HashMap<>();
         for (ConstraintViolation<?> v : ex.getConstraintViolations()) {
             String path = v.getPropertyPath().toString();
             details.put(path, v.getMessage());
         }
         ErrorResponse body = new ErrorResponse(
-                OffsetDateTime.now(),
-                HttpStatus.BAD_REQUEST.value(),
                 HttpStatus.BAD_REQUEST.getReasonPhrase(),
                 "Constraint violation",
+                HttpStatus.BAD_REQUEST.value(),
+                request.getRequestURI(),
                 details
         );
         return ResponseEntity.badRequest().body(body);
@@ -81,7 +80,7 @@ public class GlobalExceptionHandler {
 
     // JSON parse issues (invalid JSON or field type mismatch)
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
+    public ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(HttpMessageNotReadableException ex, HttpServletRequest request) {
         String msg = "Malformed JSON request";
         Throwable cause = ex.getCause();
         Map<String, String> details = null;
@@ -100,10 +99,10 @@ public class GlobalExceptionHandler {
         }
 
         ErrorResponse body = new ErrorResponse(
-                OffsetDateTime.now(),
-                HttpStatus.BAD_REQUEST.value(),
                 HttpStatus.BAD_REQUEST.getReasonPhrase(),
                 msg,
+                HttpStatus.BAD_REQUEST.value(),
+                request.getRequestURI(),
                 details
         );
         return ResponseEntity.badRequest().body(body);
@@ -111,12 +110,12 @@ public class GlobalExceptionHandler {
 
     // Missing request parameter
     @ExceptionHandler(MissingServletRequestParameterException.class)
-    public ResponseEntity<ErrorResponse> handleMissingParam(MissingServletRequestParameterException ex) {
+    public ResponseEntity<ErrorResponse> handleMissingParam(MissingServletRequestParameterException ex, HttpServletRequest request) {
         ErrorResponse body = new ErrorResponse(
-                OffsetDateTime.now(),
-                HttpStatus.BAD_REQUEST.value(),
                 HttpStatus.BAD_REQUEST.getReasonPhrase(),
                 "Missing parameter: " + ex.getParameterName(),
+                HttpStatus.BAD_REQUEST.value(),
+                request.getRequestURI(),
                 Map.of(ex.getParameterName(), "required")
         );
         return ResponseEntity.badRequest().body(body);
@@ -124,14 +123,13 @@ public class GlobalExceptionHandler {
 
     // fallback - unexpected errors
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleAll(Exception ex) {
+    public ResponseEntity<ErrorResponse> handleAll(Exception ex, HttpServletRequest request) {
         log.error("Unhandled exception", ex);
         ErrorResponse body = new ErrorResponse(
-                OffsetDateTime.now(),
-                HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
                 "An unexpected error occurred",
-                null
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                request.getRequestURI()
         );
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
     }
