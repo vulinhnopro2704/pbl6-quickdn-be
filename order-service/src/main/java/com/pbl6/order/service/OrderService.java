@@ -72,9 +72,7 @@ public class OrderService {
             pkg.setPayerType(packageDto.payerType());
             pkg.setDescription(packageDto.description());
             pkg.setCategory(packageDto.category());
-
-            if (packageDto.cod()) {
-                // Nếu codAmount() là Double/nullable
+            if (packageDto.cod() != null && packageDto.cod()) {
                 if (packageDto.codAmount() != null) {
                     pkg.setCodFee(BigDecimal.valueOf(packageDto.codAmount()));
                 } else {
@@ -115,8 +113,8 @@ public class OrderService {
         // SAVE order (packages sẽ được persist bởi cascade = CascadeType.ALL)
         orderRepo.save(order);
 
-        // trả về totalAmount (BigDecimal). CreateOrderResponse constructor có thể chấp nhận BigDecimal
-        return new CreateOrderResponse(order.getId(), order.getTotalAmount().doubleValue(), "VND", order.getStatus().name());
+    // trả về totalAmount (BigDecimal). CreateOrderResponse now uses OrderStatus enum for status
+    return new CreateOrderResponse(order.getId(), order.getTotalAmount().doubleValue(), "VND", order.getStatus());
     }
 
     private PackageAddressEntity createAddress(AddressDto addrDto) {
