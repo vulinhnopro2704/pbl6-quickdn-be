@@ -33,6 +33,7 @@ jobs:
           - goongmap-service
           - payment-service
           - ai-service
+          - file-service
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -174,6 +175,7 @@ jobs:
             ORDER_SERVICE_URL=${{ secrets.ORDER_SERVICE_URL }}
             PAYMENT_SERVICE_URL=${{ secrets.PAYMENT_SERVICE_URL }}
             AI_SERVICE_URL=${{ secrets.AI_SERVICE_URL }}
+            FILE_SERVICE_URL=${{ secrets.FILE_SERVICE_URL }}
             
             # Database Configuration - Auth Service
             AUTH_DB_NAME=${{ secrets.AUTH_DB_NAME }}
@@ -235,6 +237,15 @@ jobs:
             # Spring Profile
             SPRING_PROFILES_ACTIVE=${{ secrets.SPRING_PROFILES_ACTIVE }}
             
+            # MinIO Configuration
+            MINIO_ROOT_USER=${{ secrets.MINIO_ROOT_USER }}
+            MINIO_ROOT_PASSWORD=${{ secrets.MINIO_ROOT_PASSWORD }}
+            MINIO_ENDPOINT=${{ secrets.MINIO_ENDPOINT }}
+            MINIO_EXTERNAL_ENDPOINT=${{ secrets.MINIO_EXTERNAL_ENDPOINT }}
+            MINIO_ACCESS_KEY=${{ secrets.MINIO_ACCESS_KEY }}
+            MINIO_SECRET_KEY=${{ secrets.MINIO_SECRET_KEY }}
+            DEFAULT_BUCKET_NAME=${{ secrets.DEFAULT_BUCKET_NAME }}
+
             # Grafana Configuration (Optional - có default values)
             GRAFANA_ADMIN_USER=${{ secrets.GRAFANA_ADMIN_USER }}
             GRAFANA_ADMIN_PASSWORD=${{ secrets.GRAFANA_ADMIN_PASSWORD }}
@@ -339,6 +350,7 @@ jobs:
             docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/goongmap-service:latest || true
             docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/payment-service:latest || true
             docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/ai-service:latest || true
+            docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/file-service:latest || true
 
             echo "Recreating all services with latest images..."
             docker_compose_cmd up -d --force-recreate

@@ -1,13 +1,12 @@
 import os
-import dotenv
 import json
-from fastapi import FastAPI, Form, UploadFile, File, HTTPException, Query, status
+from fastapi import FastAPI, Form, UploadFile, File, Query, status
 from fastapi.concurrency import asynccontextmanager
 from fastapi.exceptions import RequestValidationError
 from minio import Minio
 from minio.error import S3Error
-from datetime import datetime, timedelta
 import uuid
+from io import BytesIO
 
 from app.utils import success_response, error_response
 from app.exceptions import (
@@ -49,7 +48,7 @@ async def lifespan(app: FastAPI):
     create_bucket_if_not_exists(DEFAULT_BUCKET_NAME)
     yield
     
-app = FastAPI(title="File Service MINIO", lifespan=lifespan, docs_url="/api/docs", redoc_url="/api/redoc")
+app = FastAPI(title="File Service MINIO", lifespan=lifespan, docs_url="/api/file/docs", redoc_url="/api/file/redoc")
 
 # Đăng ký exception handlers
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
@@ -64,7 +63,7 @@ minio_client = Minio(
 )
 
 
-@app.get("/api/health")
+@app.get("/api/file/health")
 def health_check():
     """Health check endpoint với status MinIO connection"""
     try:
@@ -89,7 +88,7 @@ def health_check():
         )
 
 
-@app.post("/api/upload")
+@app.post("/api/file/upload")
 async def upload_file(file: UploadFile = File(...), bucket_name: str = Form(None)):
     """
     Upload file lên MinIO storage
@@ -156,7 +155,7 @@ async def upload_file(file: UploadFile = File(...), bucket_name: str = Form(None
                 error_detail=f"Maximum file size is {MAX_FILE_SIZE / (1024*1024)}MB"
             )
         
-        from io import BytesIO
+
         minio_client.put_object(
             bucket_name=target_bucket,
             object_name=unique_filename,
@@ -196,7 +195,7 @@ async def upload_file(file: UploadFile = File(...), bucket_name: str = Form(None
         )
 
 
-@app.get("/api/file/{filename}")
+@app.get("/api/file/download/{filename}")
 def get_file_url(
     filename: str, 
     bucket_name: str = Query(None)

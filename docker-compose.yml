@@ -16,6 +16,7 @@ volumes:
   prometheus-data:
   grafana-data:
   ai-db-data:
+  minio-data:
 
 services:
   redis:
@@ -318,6 +319,56 @@ services:
       start_period: 40s
     restart: no
 
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_SERVER_URL: "http://localhost:9000"
+    volumes:
+      - minio-data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    command: server /data --console-address ":9001"
+    networks:
+      - pbl6-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  file-service:
+    image: ghcr.io/${REGISTRY_USERNAME}/pbl6-quickdn-be/file-service:latest
+    container_name: file-service
+    build:
+      context: ./file-service
+      dockerfile: Dockerfile
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
+      MINIO_EXTERNAL_ENDPOINT: ${MINIO_EXTERNAL_ENDPOINT:-http://localhost:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      DEFAULT_BUCKET_NAME: ${DEFAULT_BUCKET_NAME:-images}
+    ports:
+      - "8086:8000"
+    networks:
+      - pbl6-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/docs || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    restart: on-failure
+
   gateway:
     image: ghcr.io/${REGISTRY_USERNAME:-vulinhnopro2704}/pbl6-quickdn-be/gateway:latest
     container_name: api-gateway
@@ -331,6 +382,7 @@ services:
       ORDER_SERVICE_URL: ${ORDER_SERVICE_URL:-http://order-service:8083}
       PAYMENT_SERVICE_URL: ${PAYMENT_SERVICE_URL:-http://payment-service:8084}
       AI_SERVICE_URL: ${AI_SERVICE_URL:-http://ai-service:8000}
+      FILE_SERVICE_URL: ${FILE_SERVICE_URL:-http://file-service:8086}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
       CORS_ALLOWED_METHODS: ${CORS_ALLOWED_METHODS:-GET,POST,PUT,DELETE,PATCH,OPTIONS}
       CORS_ALLOWED_HEADERS: ${CORS_ALLOWED_HEADERS:-*}

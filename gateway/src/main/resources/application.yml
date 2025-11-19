@@ -65,3 +65,5 @@ services:
     url: ${PAYMENT_SERVICE_URL}
   ai:
     url: ${AI_SERVICE_URL}
+  file:
+    url: ${FILE_SERVICE_URL}
