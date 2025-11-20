@@ -33,29 +33,30 @@ jobs:
           - goongmap-service
           - payment-service
           - ai-service
+          - file-service
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python for AI Service
-        if: matrix.service == 'ai-service'
+      - name: Set up Python for Python Services
+        if: matrix.service == 'ai-service' || matrix.service == 'file-service'
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Verify AI Service requirements
-        if: matrix.service == 'ai-service'
+      - name: Verify Python Service requirements
+        if: matrix.service == 'ai-service' || matrix.service == 'file-service'
         run: |
-          cd ai-service
+          cd ${{ matrix.service }}
           if [ ! -f requirements.txt ]; then
-            echo "Error: requirements.txt not found in ai-service/"
+            echo "Error: requirements.txt not found in ${{ matrix.service }}/"
             exit 1
           fi
           echo "Found requirements.txt"
           cat requirements.txt
 
       - name: Set up JDK 21
-        if: matrix.service != 'ai-service'
+        if: matrix.service != 'ai-service' && matrix.service != 'file-service'
         uses: actions/setup-java@v4
         with:
           java-version: '21'
@@ -63,18 +64,18 @@ jobs:
           cache: 'gradle'
 
       - name: Grant execute permission for gradlew
-        if: matrix.service != 'ai-service'
+        if: matrix.service != 'ai-service' && matrix.service != 'file-service'
         run: |
           chmod +x ${{ matrix.service }}/gradlew
 
       - name: Build with Gradle
-        if: matrix.service != 'ai-service'
+        if: matrix.service != 'ai-service' && matrix.service != 'file-service'
         run: |
           cd ${{ matrix.service }}
           ./gradlew clean bootJar --no-daemon
 
       - name: Verify JAR file exists
-        if: matrix.service != 'ai-service'
+        if: matrix.service != 'ai-service' && matrix.service != 'file-service'
         run: |
           shopt -s nullglob
           FILES=(${{ matrix.service }}/build/libs/*.jar)
@@ -174,6 +175,7 @@ jobs:
             ORDER_SERVICE_URL=${{ secrets.ORDER_SERVICE_URL }}
             PAYMENT_SERVICE_URL=${{ secrets.PAYMENT_SERVICE_URL }}
             AI_SERVICE_URL=${{ secrets.AI_SERVICE_URL }}
+            FILE_SERVICE_URL=${{ secrets.FILE_SERVICE_URL }}
             
             # Database Configuration - Auth Service
             AUTH_DB_NAME=${{ secrets.AUTH_DB_NAME }}
@@ -206,6 +208,11 @@ jobs:
             AI_CLOUDINARY_API_SECRET=${{ secrets.AI_CLOUDINARY_API_SECRET }}
             AI_API_ENDPOINT=${{ secrets.AI_API_ENDPOINT }}
             AI_FACE_SIMILARITY_THRESHOLD=${{ secrets.AI_FACE_SIMILARITY_THRESHOLD }}
+            
+            # File Service Configuration
+            FILE_CLOUDINARY_CLOUD_NAME=${{ secrets.FILE_CLOUDINARY_CLOUD_NAME }}
+            FILE_CLOUDINARY_API_KEY=${{ secrets.FILE_CLOUDINARY_API_KEY }}
+            FILE_CLOUDINARY_API_SECRET=${{ secrets.FILE_CLOUDINARY_API_SECRET }}
             
             # JWT Configuration
             JWT_SECRET=${{ secrets.JWT_SECRET }}
@@ -339,6 +346,7 @@ jobs:
             docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/goongmap-service:latest || true
             docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/payment-service:latest || true
             docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/ai-service:latest || true
+            docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/file-service:latest || true
 
             echo "Recreating all services with latest images..."
             docker_compose_cmd up -d --force-recreate
