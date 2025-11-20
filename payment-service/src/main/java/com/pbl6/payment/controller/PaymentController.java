@@ -31,7 +31,6 @@ import org.springframework.web.bind.annotation.*;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/payments")
 @RequiredArgsConstructor
 @Tag(
     name = "Payment",
@@ -153,7 +152,7 @@ public class PaymentController {
             )
         )
     })
-    @PostMapping
+    @PostMapping("/")
     public ResponseEntity<PaymentResponse> createPayment(
             @Valid @RequestBody CreatePaymentRequest request) {
         
@@ -162,6 +161,11 @@ public class PaymentController {
         
         PaymentResponse response = paymentService.createPayment(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping("/")
+    public ResponseEntity<String> helloWorld() {
+        return ResponseEntity.ok("Hello World!");
     }
     
     /**

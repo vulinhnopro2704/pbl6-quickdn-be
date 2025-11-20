@@ -20,7 +20,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Arrays;
+import com.fasterxml.jackson.core.type.TypeReference;
+
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -102,10 +104,22 @@ public class PaymentService {
             savePaymentEvent(payment.getId(), request.getOrderCode(), 
                 "CREATE_RESPONSE", payosResponse);
             
-            // 6. Update payment with payOS response data
-            payment.setPayosPaymentLinkId(payosResponse.getData().getPaymentLinkId());
-            payment.setCheckoutUrl(payosResponse.getData().getCheckoutUrl());
-            payment.setExpiredAt(payosResponse.getData().getExpiredAt());
+            // 6. Persist full payOS response data into payment.meta so we can return everything to clients
+            try {
+                if (payosResponse != null && payosResponse.getData() != null) {
+                    String metaJson = objectMapper.writeValueAsString(payosResponse.getData());
+                    payment.setMeta(metaJson);
+                }
+            } catch (Exception e) {
+                log.warn("Failed to serialize payOS response data into payment.meta: {}", e.getMessage());
+            }
+
+            // 7. Update payment with payOS response data (kept for backward compatibility)
+            if (payosResponse != null && payosResponse.getData() != null) {
+                payment.setPayosPaymentLinkId(payosResponse.getData().getPaymentLinkId());
+                payment.setCheckoutUrl(payosResponse.getData().getCheckoutUrl());
+                payment.setExpiredAt(payosResponse.getData().getExpiredAt());
+            }
             payment = paymentRepository.save(payment);
             
             log.info("Payment created successfully: paymentId={}, paymentLinkId={}, checkoutUrl={}", 
@@ -212,7 +226,7 @@ public class PaymentService {
      * Build payment response for client
      */
     private PaymentResponse buildPaymentResponse(Payment payment) {
-        return PaymentResponse.builder()
+        PaymentResponse.PaymentResponseBuilder builder = PaymentResponse.builder()
             .paymentId(payment.getId())
             .orderCode(payment.getOrderCode())
             .amount(payment.getAmount())
@@ -220,8 +234,31 @@ public class PaymentService {
             .checkoutUrl(payment.getCheckoutUrl())
             .paymentLinkId(payment.getPayosPaymentLinkId())
             .status(payment.getStatus())
-            .expiredAt(payment.getExpiredAt())
-            .build();
+            .expiredAt(payment.getExpiredAt());
+
+        // If we stored payOS response in meta, parse it and include in response so clients get full data (qrCode, bin, accountNumber, ...)
+        if (payment.getMeta() != null) {
+            try {
+                Map<String, Object> payosData = objectMapper.readValue(
+                    payment.getMeta(), new TypeReference<Map<String, Object>>(){}
+                );
+                builder.payosData(payosData);
+
+                // If qrCode wasn't set directly on payment, try to fill from payosData
+                if (payosData.containsKey("qrCode") && payosData.get("qrCode") != null) {
+                    Object qr = payosData.get("qrCode");
+                    if (qr instanceof String) {
+                        builder.qrCode((String) qr);
+                    } else {
+                        builder.qrCode(String.valueOf(qr));
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Failed to parse payment.meta into payosData: {}", e.getMessage());
+            }
+        }
+
+        return builder.build();
     }
     
     /**
