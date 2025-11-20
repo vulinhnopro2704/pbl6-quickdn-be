@@ -7,6 +7,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Map;
+
 /**
  * Response DTO for our backend API
  * Returns local payment ID + payOS checkout details
@@ -55,6 +57,13 @@ public class PaymentResponse {
         accessMode = Schema.AccessMode.READ_ONLY
     )
     private String checkoutUrl;
+
+    @Schema(
+            description = "VietQR QR Code string for payment",
+            example = "00020101021126370014A000000727012301234567",
+            accessMode = Schema.AccessMode.READ_ONLY
+    )
+    private String qrCode;
     
     @Schema(
         description = "payOS payment link ID for tracking",
@@ -77,4 +86,10 @@ public class PaymentResponse {
         accessMode = Schema.AccessMode.READ_ONLY
     )
     private Long expiredAt;
+
+    @Schema(
+        description = "Raw payOS response data (all fields returned by payOS)",
+        accessMode = Schema.AccessMode.READ_ONLY
+    )
+    private Map<String, Object> payosData;
 }
