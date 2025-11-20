@@ -2,9 +2,12 @@ package com.pbl6.order.service;
 
 import com.pbl6.order.dto.*;
 import com.pbl6.order.entity.*;
+import com.pbl6.order.exception.AppException;
+import com.pbl6.order.mapper.OrderMapper;
 import com.pbl6.order.repository.OrderRepository;
 import com.pbl6.order.repository.PackageAddressRepository;
 import com.pbl6.order.repository.PackageRepository;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -12,6 +15,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -41,7 +45,11 @@ public class OrderService {
         order.setPickupAddress(pickup);
         order.setCustomerNote(req.customerNote());
         if (req.scheduledAt() != null) {
-            order.setScheduledAt(LocalDateTime.parse(req.scheduledAt()));
+            try {
+                order.setScheduledAt(LocalDateTime.parse(req.scheduledAt())); // expects ISO-8601
+            } catch (DateTimeParseException ex) {
+                throw AppException.badRequest("scheduledAt phải là ISO-8601");
+            }
         }
 
         // packages
@@ -71,14 +79,23 @@ public class OrderService {
             pkg.setPackageSize(packageDto.size());
             pkg.setPayerType(packageDto.payerType());
             pkg.setDescription(packageDto.description());
-            pkg.setCategory(packageDto.category());
-            if (packageDto.cod() != null && packageDto.cod()) {
-                if (packageDto.codAmount() != null) {
-                    pkg.setCodFee(BigDecimal.valueOf(packageDto.codAmount()));
-                } else {
-                    pkg.setCodFee(BigDecimal.ZERO);
+            if (packageDto.category() != null) {
+                pkg.setCategory(packageDto.category());
+            }
+            Boolean cod = packageDto.cod();
+            Double codAmount = packageDto.codAmount();
+
+            if (cod != null && cod) {
+                if (codAmount == null || codAmount <= 0.0) {
+                    throw AppException.badRequest("Khi chọn COD, codAmount phải > 0");
                 }
+                // convert to BigDecimal và set
+                pkg.setCodFee(BigDecimal.valueOf(codAmount));
             } else {
+                if (codAmount != null && codAmount > 0.0) {
+                    // business rule: không cho phép gửi codAmount nếu client không tick COD
+                    throw AppException.badRequest("Không được cung cấp codAmount khi COD không được chọn");
+                }
                 pkg.setCodFee(BigDecimal.ZERO);
             }
 
@@ -96,6 +113,13 @@ public class OrderService {
 
             // lưu package sẽ được cascade khi save order; nếu bạn muốn lưu riêng vẫn có thể
             packageEntities.add(pkg);
+        }
+
+        if (req.voucherCode() != null) {
+            // Ap dung logic voucher o day neu can
+            if (!req.voucherCode().equals("VALID-VOUCHER")) {
+                throw AppException.badRequest("Mã voucher không hợp lệ");
+            }
         }
 
         order.setPackages(packageEntities);
@@ -138,6 +162,22 @@ public class OrderService {
 
         addressRepo.save(addr);
         return addr;
+    }
+
+    public OrderListResponse getMyOrders(UUID userId) {
+        var list = orderRepo.findByCreatorIdOrderByCreatedAtDesc(userId)
+                .stream()
+                .map(OrderMapper::toListItem)
+                .toList();
+        return new OrderListResponse(list);
+    }
+
+    public OrderDetailResponse getOrderById(UUID userId, UUID orderId) {
+        OrderEntity entity = orderRepo.findById(orderId)
+                .orElseThrow(() -> AppException.badRequest("Order not found"));
+        if (!entity.getCreatorId().equals(userId))
+            throw AppException.badRequest("Access denied");
+        return OrderMapper.toDetail(entity);
     }
 
 }

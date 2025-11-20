@@ -40,7 +40,7 @@ public class SecurityConfig {
                 "/actuator/**",
                 "/health",
                 "/public/**",
-                "/api/order/test",
+                "/api/orders/test",
                 // Swagger/OpenAPI endpoints
                 "/v3/api-docs/**",
                 "/swagger-ui/**",
@@ -55,13 +55,13 @@ public class SecurityConfig {
         .exceptionHandling(ex -> ex
             .authenticationEntryPoint((request, response, authException) -> {
                 log.warn("Unauthorized request to: {} - {}", request.getRequestURI(), authException.getMessage());
-                response.setContentType("application/json");
+                response.setContentType("application/json;charset=UTF-8"); // thêm charset
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"Chưa xác thực, kiểm tra token bị hết hạn hoặc không hợp lệ\"}");
             })
             .accessDeniedHandler((request, response, accessDeniedException) -> {
                 log.warn("Access denied to: {} - {}", request.getRequestURI(), accessDeniedException.getMessage());
-                response.setContentType("application/json");
+                response.setContentType("application/json;charset=UTF-8"); // thêm charset
                 response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                 response.getWriter().write("{\"error\":\"Forbidden\",\"message\":\"Không có quyền truy cập\"}");
             })

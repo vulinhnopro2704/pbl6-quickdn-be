@@ -2,6 +2,7 @@ package com.pbl6.order.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
@@ -12,7 +13,7 @@ public record CreateOrderRequest(
         @NotNull @Valid AddressDto pickupAddress,
 
         @Schema(description = "List of packages within the order", required = true)
-        @NotNull @Valid List<@Valid PackageDto> packages,
+        @NotNull @Valid @NotEmpty List<@Valid PackageDto> packages,
 
         @Schema(description = "Customer note for the order")
         String customerNote,

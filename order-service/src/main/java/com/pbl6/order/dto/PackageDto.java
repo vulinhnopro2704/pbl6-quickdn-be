@@ -16,7 +16,7 @@ public record PackageDto(
         @Schema(description = "Weight in kilograms") @NotNull Double weightKg,
         @Schema(description = "Receiver address for this package") @NotNull @Valid AddressDto receiverAddress,
         @Schema(description = "Who pays for shipping") @NotNull PayerType payerType,
-        @Schema(description = "Category of the package") @NotNull PackageCategory category,
+        @Schema(description = "Category of the package") PackageCategory category,
         @Schema(description = "Is COD enabled for this package") Boolean cod,
         @Schema(description = "COD amount") Double codAmount,
         @Schema(description = "Optional description") String description
