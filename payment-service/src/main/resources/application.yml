@@ -44,7 +44,7 @@ spring:
 server:
   port: ${SERVER_PORT}
   servlet:
-    context-path: /api/payment
+    context-path: /api/payments
   error:
     include-message: always
     include-stacktrace: on_param
@@ -81,17 +81,6 @@ springdoc:
     showCommonExtensions: true
   show-actuator: false
 
-# PayOS API Configuration
-# REQUIRED ENV VARS:
-# - PAYOS_CLIENT_ID: Client ID from payOS dashboard
-# - PAYOS_API_KEY: API Key from payOS dashboard
-# - PAYOS_CHECKSUM_KEY: Checksum key for signature generation
-# 
-# OPTIONAL ENV VARS:
-# - PAYOS_API_BASE_URL (default: https://api-merchant.payos.vn)
-# - PAYOS_PARTNER_CODE: Partner code if participating in partner program
-# - PAYOS_RETURN_URL: Default return URL after successful payment
-# - PAYOS_CANCEL_URL: Default cancel URL when user cancels payment
 payos:
   api:
     base-url: ${PAYOS_API_BASE_URL:https://api-merchant.payos.vn}
@@ -116,13 +105,14 @@ management:
     health:
       show-details: when-authorized
   metrics:
-    export:
-      prometheus:
-        enabled: true
     distribution:
       percentiles-histogram:
         http.server.requests: true
       slo:
-        http.server.requests: 50ms,100ms,200ms,500ms,1s,2s
+        http.value: 50ms,100ms,200ms,500ms,1s,2s
     tags:
       application: ${spring.application.name}
+  prometheus:
+    metrics:
+      export:
+        enabled: true
