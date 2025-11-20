@@ -32,11 +32,30 @@ jobs:
           - order-service
           - goongmap-service
           - payment-service
+          - ai-service
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Python for AI Service
+        if: matrix.service == 'ai-service'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify AI Service requirements
+        if: matrix.service == 'ai-service'
+        run: |
+          cd ai-service
+          if [ ! -f requirements.txt ]; then
+            echo "Error: requirements.txt not found in ai-service/"
+            exit 1
+          fi
+          echo "Found requirements.txt"
+          cat requirements.txt
+
       - name: Set up JDK 21
+        if: matrix.service != 'ai-service'
         uses: actions/setup-java@v4
         with:
           java-version: '21'
@@ -44,15 +63,18 @@ jobs:
           cache: 'gradle'
 
       - name: Grant execute permission for gradlew
+        if: matrix.service != 'ai-service'
         run: |
           chmod +x ${{ matrix.service }}/gradlew
 
       - name: Build with Gradle
+        if: matrix.service != 'ai-service'
         run: |
           cd ${{ matrix.service }}
           ./gradlew clean bootJar --no-daemon
 
       - name: Verify JAR file exists
+        if: matrix.service != 'ai-service'
         run: |
           shopt -s nullglob
           FILES=(${{ matrix.service }}/build/libs/*.jar)
@@ -151,6 +173,7 @@ jobs:
             GOONGMAP_SERVICE_URL=${{ secrets.GOONGMAP_SERVICE_URL }}
             ORDER_SERVICE_URL=${{ secrets.ORDER_SERVICE_URL }}
             PAYMENT_SERVICE_URL=${{ secrets.PAYMENT_SERVICE_URL }}
+            AI_SERVICE_URL=${{ secrets.AI_SERVICE_URL }}
             
             # Database Configuration - Auth Service
             AUTH_DB_NAME=${{ secrets.AUTH_DB_NAME }}
@@ -171,6 +194,18 @@ jobs:
             PAYMENT_DB_NAME=${{ secrets.PAYMENT_DB_NAME }}
             PAYMENT_DB_USER=${{ secrets.PAYMENT_DB_USER }}
             PAYMENT_DB_PASSWORD=${{ secrets.PAYMENT_DB_PASSWORD }}
+            
+            # Database Configuration - AI Service
+            AI_DB_NAME=${{ secrets.AI_DB_NAME }}
+            AI_DB_USER=${{ secrets.AI_DB_USER }}
+            AI_DB_PASSWORD=${{ secrets.AI_DB_PASSWORD }}
+            
+            # AI Service Configuration
+            AI_CLOUDINARY_CLOUD_NAME=${{ secrets.AI_CLOUDINARY_CLOUD_NAME }}
+            AI_CLOUDINARY_API_KEY=${{ secrets.AI_CLOUDINARY_API_KEY }}
+            AI_CLOUDINARY_API_SECRET=${{ secrets.AI_CLOUDINARY_API_SECRET }}
+            AI_API_ENDPOINT=${{ secrets.AI_API_ENDPOINT }}
+            AI_FACE_SIMILARITY_THRESHOLD=${{ secrets.AI_FACE_SIMILARITY_THRESHOLD }}
             
             # JWT Configuration
             JWT_SECRET=${{ secrets.JWT_SECRET }}
@@ -199,23 +234,27 @@ jobs:
             
             # Spring Profile
             SPRING_PROFILES_ACTIVE=${{ secrets.SPRING_PROFILES_ACTIVE }}
+            
+            # Grafana Configuration (Optional - có default values)
+            GRAFANA_ADMIN_USER=${{ secrets.GRAFANA_ADMIN_USER }}
+            GRAFANA_ADMIN_PASSWORD=${{ secrets.GRAFANA_ADMIN_PASSWORD }}
             EOF
             
             echo ".env file created successfully"
             ls -la .env
 
-      - name: Copy docker-compose.yml to VPS
+      - name: Copy docker-compose.yml and monitoring configs to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
-          source: "docker-compose.yml"
+          source: "docker-compose.yml,prometheus/,grafana/"
           target: "~/pbl6-backend/"
           strip_components: 0
 
-      - name: Rename docker-compose file on VPS
+      - name: Verify monitoring configs on VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -224,8 +263,16 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           script: |
             cd ~/pbl6-backend
-            mv docker-compose.yml docker-compose.yml || true
-            echo "docker-compose.yml updated successfully"
+            echo "Verifying configuration files..."
+            ls -la
+            echo ""
+            echo "Prometheus config:"
+            ls -la prometheus/ || echo "Warning: prometheus/ directory not found"
+            echo ""
+            echo "Grafana provisioning:"
+            ls -la grafana/provisioning/ || echo "Warning: grafana/provisioning/ directory not found"
+            echo ""
+            echo "Configuration files verified successfully"
 
       - name: Deploy to VPS via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -291,6 +338,7 @@ jobs:
             docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/order-service:latest || true
             docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/goongmap-service:latest || true
             docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/payment-service:latest || true
+            docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/ai-service:latest || true
 
             echo "Recreating all services with latest images..."
             docker_compose_cmd up -d --force-recreate

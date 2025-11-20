@@ -37,6 +37,9 @@ dependencies {
     // Spring Dotenv
     implementation 'me.paulschwarz:spring-dotenv:4.0.0'
 
+    // Micrometer Prometheus for metrics
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+
     // Database driver
     runtimeOnly 'org.postgresql:postgresql' // Spring Boot quản lý version
 
