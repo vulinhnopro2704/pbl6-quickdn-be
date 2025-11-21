@@ -2,8 +2,11 @@ package com.pbl6.order.controller;
 
 import com.pbl6.order.dto.CreateOrderRequest;
 import com.pbl6.order.dto.CreateOrderResponse;
+import com.pbl6.order.dto.OrderListItemResponse;
+import com.pbl6.order.exception.AppException;
 import com.pbl6.order.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -12,12 +15,19 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
-import java.util.UUID;
+import java.time.LocalDate;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequiredArgsConstructor
@@ -55,8 +65,8 @@ public class OrderController {
 
     @GetMapping
     @Operation(
-            summary = "List orders for authenticated user",
-            description = "Returns list of orders belonging to the authenticated user"
+            summary = "List orders (paged, searchable, sortable, filterable)",
+            description = "page is 1-based. Default page=1, size=50. Supports q, fromDate, toDate, status, paymentMethod, sort."
     )
     @ApiResponses({
         @ApiResponse(
@@ -94,9 +104,64 @@ public class OrderController {
             )
         )
     })
-    public ResponseEntity<?> listOrders(Authentication auth) {
-        UUID userId = UUID.fromString(auth.getName());
-        var resp = orderService.getMyOrders(userId);
+    public ResponseEntity<Page<OrderListItemResponse>> listOrders(
+            Authentication auth,
+            @RequestParam(required = false) String role,    // optional selector
+            @RequestParam(required = false) String userId,  // only for admin-role
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String paymentMethod,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(required = false, defaultValue = "1") Integer page,
+            @RequestParam(required = false, defaultValue = "50") Integer size,
+            @RequestParam(required = false, defaultValue = "createdAt,desc") String sort
+    ) {
+        // parse currentUserId
+        UUID currentUserId = null;
+        try { currentUserId = UUID.fromString(auth.getName()); } catch (Exception ignored) {}
+
+        // collect roles user actually has
+        Set<String> roles = auth.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.toSet());
+
+        // If role param provided -> validate it's one of allowed values
+        String roleToUse = null;
+        if (role != null && !role.isBlank()) {
+            // Normalize e.g. accept "USER" or "ROLE_USER" (optional)
+            if (!role.startsWith("ROLE_")) role = "ROLE_" + role;
+            // check user has this role
+            if (!roles.contains(role)) {
+                throw AppException.forbidden("Bạn không có role được yêu cầu: " + role);
+            }
+            roleToUse = role;
+        } else {
+            // no role param: derive default behavior
+            // prefer admin if user has it, else use union of roles (handled in service)
+            if (roles.contains("ROLE_ADMIN")) {
+                roleToUse = "ROLE_ADMIN";
+            } else {
+                roleToUse = "ROLE_USER"; // default to USER
+            }
+        }
+
+        // parse pageable/sort
+        int pageIndex = (page == null || page < 1) ? 0 : page - 1;
+        Sort sortObj = buildSortFromParam(sort); // helper function similar to previous examples
+        Pageable pageable = PageRequest.of(pageIndex, size, sortObj);
+
+        // parse filterUserId only if present and will be authorized in service
+        UUID filterUserId = null;
+        if (userId != null && !userId.isBlank()) {
+            try { filterUserId = UUID.fromString(userId); } catch (Exception ex) {
+                throw com.pbl6.order.exception.AppException.badRequest("userId không hợp lệ");
+            }
+        }
+
+        Page<OrderListItemResponse> resp = orderService.getOrdersByRoleSelector(
+                currentUserId, roles, roleToUse, filterUserId, q, status, paymentMethod, fromDate, toDate, pageable
+        );
         return ResponseEntity.ok(resp);
     }
 
@@ -169,9 +234,56 @@ public class OrderController {
             @PathVariable UUID id,
             Authentication auth
     ) {
-        UUID userId = UUID.fromString(auth.getName());
-        var resp = orderService.getOrderById(userId, id);
+        UUID currentUserId = null;
+        try {
+            currentUserId = UUID.fromString(auth.getName());
+        } catch (Exception ignored) {}
+
+        // collect roles of authenticated user
+        var roles = auth.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.toSet());
+
+        var resp = orderService.getOrderById(currentUserId, roles, id);
         return ResponseEntity.ok(resp);
+    }
+
+    private Sort buildSortFromParam(String sortParam) {
+        // Accept patterns:
+        // "createdAt,desc"
+        // "createdAt,desc;totalAmount,asc"
+        // "createdAt" (default DESC)
+        if (sortParam == null || sortParam.isBlank()) {
+            return Sort.by(Sort.Direction.DESC, "createdAt");
+        }
+
+        try {
+            // support multiple sort clauses separated by ';'
+            String[] clauses = sortParam.split(";");
+            List<Sort.Order> orders = new ArrayList<>();
+            for (String clause : clauses) {
+                String trimmed = clause.trim();
+                if (trimmed.isEmpty()) continue;
+                String[] parts = trimmed.split(",");
+                String property = parts[0].trim();
+                Sort.Direction dir = Sort.Direction.DESC; // default
+                if (parts.length > 1) {
+                    try {
+                        dir = Sort.Direction.fromString(parts[1].trim());
+                    } catch (IllegalArgumentException ignored) {
+                        // keep default
+                    }
+                }
+                orders.add(new Sort.Order(dir, property));
+            }
+            if (orders.isEmpty()) {
+                return Sort.by(Sort.Direction.DESC, "createdAt");
+            }
+            return Sort.by(orders);
+        } catch (Exception ex) {
+            // fallback default sort
+            return Sort.by(Sort.Direction.DESC, "createdAt");
+        }
     }
 
 }

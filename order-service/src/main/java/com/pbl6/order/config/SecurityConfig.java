@@ -40,7 +40,7 @@ public class SecurityConfig {
                 "/actuator/**",
                 "/health",
                 "/public/**",
-                "/api/orders/test",
+                "/api/order/test",
                 // Swagger/OpenAPI endpoints
                 "/v3/api-docs/**",
                 "/swagger-ui/**",

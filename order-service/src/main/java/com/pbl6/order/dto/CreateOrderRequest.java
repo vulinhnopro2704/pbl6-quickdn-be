@@ -1,5 +1,6 @@
 package com.pbl6.order.dto;
 
+import com.pbl6.order.entity.PaymentMethod;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
@@ -31,5 +32,9 @@ public record CreateOrderRequest(
         Boolean returnToPickupWhenCod,
 
         @Schema(description = "Scheduled pickup time in ISO-8601 format")
-        String scheduledAt
+        String scheduledAt,
+
+        @Schema(description = "Payment method for the order")
+        PaymentMethod paymentMethod
+
 ) {}
