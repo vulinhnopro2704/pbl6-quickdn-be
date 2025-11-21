@@ -1,7 +1,9 @@
 package com.pbl6.order.dto;
 
+import com.pbl6.order.entity.PaymentMethod;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
@@ -12,7 +14,7 @@ public record CreateOrderRequest(
         @NotNull @Valid AddressDto pickupAddress,
 
         @Schema(description = "List of packages within the order", required = true)
-        @NotNull @Valid List<@Valid PackageDto> packages,
+        @NotNull @Valid @NotEmpty List<@Valid PackageDto> packages,
 
         @Schema(description = "Customer note for the order")
         String customerNote,
@@ -30,5 +32,9 @@ public record CreateOrderRequest(
         Boolean returnToPickupWhenCod,
 
         @Schema(description = "Scheduled pickup time in ISO-8601 format")
-        String scheduledAt
+        String scheduledAt,
+
+        @Schema(description = "Payment method for the order")
+        PaymentMethod paymentMethod
+
 ) {}
