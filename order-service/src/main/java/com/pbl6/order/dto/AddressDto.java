@@ -2,6 +2,8 @@ package com.pbl6.order.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 
@@ -13,10 +15,21 @@ public record AddressDto(
         @Schema(description = "Contact name at the address", example = "Store A", required = true)
         @NotBlank String name,
 
-        @Schema(description = "Contact phone number", example = "0912345678", required = true)
+        @Schema(
+                description = "User's phone number (Vietnamese format)",
+                example = "0912345678",
+                required = true,
+                minLength = 10,
+                maxLength = 11,
+                pattern = "^0[0-9]{9,10}$"
+        )
+        @NotBlank(message = "Phone number is required")
+        @Pattern(regexp = "^0\\d{9,10}$", message = "Invalid phone number format")
         @NotBlank String phone,
 
+        @NotNull
         @Schema(description = "Latitude coordinate") Double latitude,
 
+        @NotNull
         @Schema(description = "Longitude coordinate") Double longitude
 ) {}
