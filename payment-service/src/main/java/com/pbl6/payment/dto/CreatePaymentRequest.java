@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 /**
- * Request DTO for our backend API: POST /api/payments
+ * Request DTO for our backend API: POST /api/payment
  * This is what clients send to our service (not directly to payOS)
  */
 @Data

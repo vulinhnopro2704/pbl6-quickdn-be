@@ -25,9 +25,9 @@ import org.springframework.web.bind.annotation.*;
  * Payment controller - REST API endpoints
  * 
  * Endpoints:
- * - POST /api/payments - Create payment link
- * - GET /api/payments/{orderCode} - Get payment by orderCode
- * - POST /api/payments/webhook - Receive payment webhook from payOS
+ * - POST /api/payment - Create payment link
+ * - GET /api/payment/{orderCode} - Get payment by orderCode
+ * - POST /api/payment/webhook - Receive payment webhook from payOS
  */
 @Slf4j
 @RestController
@@ -167,7 +167,7 @@ public class PaymentController {
     public ResponseEntity<String> helloWorld() {
         return ResponseEntity.ok("Hello World!");
     }
-    
+
     /**
      * Get payment by orderCode
      */
@@ -273,7 +273,7 @@ public class PaymentController {
             See comments in code for implementation details.
             
             **Configuration:**
-            Set webhook URL in payOS dashboard: `https://your-domain.com/api/payments/webhook`
+            Set webhook URL in payOS dashboard: `https://your-domain.com/api/payment/webhook`
             """,
         tags = {"Webhook"}
     )
