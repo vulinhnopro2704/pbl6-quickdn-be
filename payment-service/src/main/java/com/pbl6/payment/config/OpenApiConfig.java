@@ -31,9 +31,9 @@ public class OpenApiConfig {
                                 .name("Apache 2.0")
                                 .url("https://www.apache.org/licenses/LICENSE-2.0.html")))
                 .servers(List.of(
-                        new Server().url("http://localhost:8084/api/payments").description("Local Development Server"),
-                        new Server().url("http://localhost:8080/api/payments").description("Local Gateway Server"),
-                        new Server().url("https://quickdn.undo.it/api/payments").description("Production Server")))
+                        new Server().url("http://localhost:8084/api/payment").description("Local Development Server"),
+                        new Server().url("http://localhost:8080/api/payment").description("Local Gateway Server"),
+                        new Server().url("https://quickdn.undo.it/api/payment").description("Production Server")))
                 .components(new Components()
                         .addSecuritySchemes("bearerAuth", new SecurityScheme()
                                 .type(SecurityScheme.Type.HTTP)

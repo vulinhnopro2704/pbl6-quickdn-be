@@ -44,7 +44,7 @@ spring:
 server:
   port: ${SERVER_PORT}
   servlet:
-    context-path: /api/payments
+    context-path: /api/payment
   error:
     include-message: always
     include-stacktrace: on_param
