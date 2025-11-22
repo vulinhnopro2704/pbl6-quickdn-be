@@ -27,7 +27,7 @@ import java.util.List;
 public class CreatePaymentRequest {
     
     @Schema(
-        description = "Unique order code for idempotency. Must be unique across all payments.",
+        description = "Unique order code for idempotency. Must be unique across all payment.",
         example = "123456789",
         required = true,
         minimum = "1"
