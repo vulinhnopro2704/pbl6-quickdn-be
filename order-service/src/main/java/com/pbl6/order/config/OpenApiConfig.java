@@ -16,29 +16,40 @@ import java.util.List;
 @Configuration
 public class OpenApiConfig {
 
-    @Bean
-    public OpenAPI orderServiceOpenAPI() {
-        return new OpenAPI()
-                .info(new Info()
-                        .title("Order Service API")
-                        .description("Order Management Service for PBL6 QuickDN Backend - Create, update, track and manage delivery orders")
-                        .version("1.0.0")
-                        .contact(new Contact()
-                                .name("PBL6 Team")
-                                .email("support@quickdn.com"))
-                        .license(new License()
-                                .name("Apache 2.0")
-                                .url("https://www.apache.org/licenses/LICENSE-2.0.html")))
-                .servers(List.of(
-                        new Server().url("http://localhost:8083/api/order").description("Local Development Server"),
-                        new Server().url("http://localhost:8080/api/order").description("Local Gateway Server"),
-                        new Server().url("https://quickdn.undo.it/api/order").description("Production Server")))
-                .components(new Components()
-                        .addSecuritySchemes("bearerAuth", new SecurityScheme()
-                                .type(SecurityScheme.Type.HTTP)
-                                .scheme("bearer")
-                                .bearerFormat("JWT")
-                                .description("JWT Bearer Token")))
-                .addSecurityItem(new SecurityRequirement().addList("bearerAuth"));
-    }
+  @Bean
+  public OpenAPI orderServiceOpenAPI() {
+    return new OpenAPI()
+        .info(
+            new Info()
+                .title("Order Service API")
+                .description(
+                    "Order Management Service for PBL6 QuickDN Backend - Create, update, track and manage delivery orders")
+                .version("1.0.0")
+                .contact(new Contact().name("PBL6 Team").email("support@quickdn.com"))
+                .license(
+                    new License()
+                        .name("Apache 2.0")
+                        .url("https://www.apache.org/licenses/LICENSE-2.0.html")))
+        .servers(
+            List.of(
+                new Server()
+                    .url("http://localhost:8083/api/order")
+                    .description("Local Development Server"),
+                new Server()
+                    .url("http://localhost:8080/api/order")
+                    .description("Local Gateway Server"),
+                new Server()
+                    .url("https://quickdn.undo.it/api/order")
+                    .description("Production Server")))
+        .components(
+            new Components()
+                .addSecuritySchemes(
+                    "bearerAuth",
+                    new SecurityScheme()
+                        .type(SecurityScheme.Type.HTTP)
+                        .scheme("bearer")
+                        .bearerFormat("JWT")
+                        .description("JWT Bearer Token")))
+        .addSecurityItem(new SecurityRequirement().addList("bearerAuth"));
+  }
 }

@@ -16,48 +16,46 @@ import java.util.UUID;
 @Setter
 @NoArgsConstructor
 public class PackageEntity {
-    @Id
-    @GeneratedValue
-    private UUID id;
+  @Id @GeneratedValue private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "order_id", nullable = false)
-    private OrderEntity order;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "order_id", nullable = false)
+  private OrderEntity order;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "dropoff_address_id", nullable = false)
-    private PackageAddressEntity dropoffAddress;
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "dropoff_address_id", nullable = false)
+  private PackageAddressEntity dropoffAddress;
 
-    @Column(name = "weight_kg", precision = 8, scale = 3, nullable = false)
-    private BigDecimal weightKg = BigDecimal.ZERO;
+  @Column(name = "weight_kg", precision = 8, scale = 3, nullable = false)
+  private BigDecimal weightKg = BigDecimal.ZERO;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "package_size", nullable = false)
-    private PackageSize packageSize;
+  @Enumerated(EnumType.STRING)
+  @Column(name = "package_size", nullable = false)
+  private PackageSize packageSize;
 
-    @Column(name = "delivery_fee", precision = 12, scale = 2, nullable = false)
-    private BigDecimal deliveryFee = BigDecimal.ZERO;
+  @Column(name = "delivery_fee", precision = 12, scale = 2, nullable = false)
+  private BigDecimal deliveryFee = BigDecimal.ZERO;
 
-    @Column(name = "cod_fee", precision = 12, scale = 2)
-    private BigDecimal codFee = BigDecimal.ZERO;
+  @Column(name = "cod_fee", precision = 12, scale = 2)
+  private BigDecimal codFee = BigDecimal.ZERO;
 
-    @Column(name = "estimated_distance_km", precision = 10, scale = 3)
-    private BigDecimal estimatedDistanceKm = BigDecimal.ZERO;
+  @Column(name = "estimated_distance_km", precision = 10, scale = 3)
+  private BigDecimal estimatedDistanceKm = BigDecimal.ZERO;
 
-    @Column(name = "estimated_duration_min")
-    private Integer estimatedDurationMin = 0;
+  @Column(name = "estimated_duration_min")
+  private Integer estimatedDurationMin = 0;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "payer_type", nullable = false)
-    private PayerType payerType = PayerType.SENDER;
+  @Enumerated(EnumType.STRING)
+  @Column(name = "payer_type", nullable = false)
+  private PayerType payerType = PayerType.SENDER;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "category", nullable = false)
-    private PackageCategory category = PackageCategory.DEFAULT;
+  @Enumerated(EnumType.STRING)
+  @Column(name = "category", nullable = false)
+  private PackageCategory category = PackageCategory.DEFAULT;
 
-    @Column(columnDefinition = "text")
-    private String description;
+  @Column(columnDefinition = "text")
+  private String description;
 
-    @Column(name = "created_at", nullable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+  @Column(name = "created_at", nullable = false)
+  private LocalDateTime createdAt = LocalDateTime.now();
 }
