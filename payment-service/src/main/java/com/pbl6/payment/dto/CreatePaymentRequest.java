@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 /**
- * Request DTO for our backend API: POST /api/payments
+ * Request DTO for our backend API: POST /api/payment
  * This is what clients send to our service (not directly to payOS)
  */
 @Data
@@ -27,7 +27,7 @@ import java.util.List;
 public class CreatePaymentRequest {
     
     @Schema(
-        description = "Unique order code for idempotency. Must be unique across all payments.",
+        description = "Unique order code for idempotency. Must be unique across all payment.",
         example = "123456789",
         required = true,
         minimum = "1"

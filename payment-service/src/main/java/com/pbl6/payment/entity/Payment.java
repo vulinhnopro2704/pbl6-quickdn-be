@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
  * Payment entity for storing payment information in local DB
  */
 @Entity
-@Table(name = "payments", indexes = {
+@Table(name = "payment", indexes = {
     @Index(name = "idx_order_code", columnList = "orderCode", unique = true),
     @Index(name = "idx_payos_payment_link_id", columnList = "payosPaymentLinkId")
 })

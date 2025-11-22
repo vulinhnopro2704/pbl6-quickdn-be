@@ -25,6 +25,9 @@ public class Routes {
     @Value("${services.ai.url}")
     private String aiServiceUrl;
 
+    @Value("${services.file.url}")
+    private String fileServiceUrl;
+
     @Bean
     public RouterFunction<ServerResponse> authServiceRoute() {
         return GatewayRouterFunctions.route("auth-service")
@@ -57,6 +60,13 @@ public class Routes {
     public RouterFunction<ServerResponse> aiServiceRoute() {
         return GatewayRouterFunctions.route("ai-service")
                 .route(RequestPredicates.path("/api/ai/**"), HandlerFunctions.http(aiServiceUrl))
+                .build();
+    }
+
+    @Bean
+    public RouterFunction<ServerResponse> fileServiceRoute() {
+        return GatewayRouterFunctions.route("file-service")
+                .route(RequestPredicates.path("/api/file/**"), HandlerFunctions.http(fileServiceUrl))
                 .build();
     }
 }

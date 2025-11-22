@@ -25,6 +25,12 @@ public class ApiGatewayApplication {
 	@Value("${services.payment.url:http://localhost:8084}")
 	private String paymentServiceUrl;
 
+	@Value("${services.ai.url:http://localhost:8085}")
+	private String aiServiceUrl;
+
+	@Value("${services.file.url:http://localhost:8086}")
+	private String fileServiceUrl;
+
 	public static void main(String[] args) {
 		SpringApplication.run(ApiGatewayApplication.class, args);
 	}
@@ -37,6 +43,8 @@ public class ApiGatewayApplication {
 			logger.info("GOONGMAP_SERVICE_URL={}", goongmapServiceUrl);
 			logger.info("ORDER_SERVICE_URL={}", orderServiceUrl);
 			logger.info("PAYMENT_SERVICE_URL={}", paymentServiceUrl);
+			logger.info("AI_SERVICE_URL={}", aiServiceUrl);
+			logger.info("FILE_SERVICE_URL={}", fileServiceUrl);
 		};
 	}
 

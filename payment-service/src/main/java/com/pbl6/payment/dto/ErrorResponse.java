@@ -47,7 +47,7 @@ public class ErrorResponse {
     
     @Schema(
         description = "Request path that caused the error",
-        example = "/api/payments"
+        example = "/api/payment"
     )
     private String path;
 }
