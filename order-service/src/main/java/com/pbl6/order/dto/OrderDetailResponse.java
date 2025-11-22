@@ -11,24 +11,23 @@ import java.util.List;
 import java.util.UUID;
 
 public record OrderDetailResponse(
-        UUID id,
-        BigDecimal totalAmount,
-        OrderStatus status,
-        LocalDateTime createdAt,
-        LocalDateTime scheduledAt,
-        AddressDto pickupAddress,
-        List<PackageItemResponse> packages
-) {
+    UUID id,
+    BigDecimal totalAmount,
+    OrderStatus status,
+    LocalDateTime createdAt,
+    LocalDateTime scheduledAt,
+    AddressDto pickupAddress,
+    List<PackageItemResponse> packages,
+    UUID shipperId) {
 
-    public record PackageItemResponse(
-            UUID id,
-            BigDecimal weightKg,
-            PackageSize packageSize,
-            BigDecimal deliveryFee,
-            BigDecimal codFee,
-            PayerType payerType,
-            PackageCategory category,
-            String description,
-            AddressDto dropoffAddress
-    ) {}
+  public record PackageItemResponse(
+      UUID id,
+      BigDecimal weightKg,
+      PackageSize packageSize,
+      BigDecimal deliveryFee,
+      BigDecimal codFee,
+      PayerType payerType,
+      PackageCategory category,
+      String description,
+      AddressDto dropoffAddress) {}
 }

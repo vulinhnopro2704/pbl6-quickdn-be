@@ -26,109 +26,117 @@ import java.util.stream.Collectors;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {
-    private final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+  private final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-    // App-level exceptions (business)
-    @ExceptionHandler(AppException.class)
-    public ResponseEntity<ErrorResponse> handleApp(AppException ex, HttpServletRequest request) {
-        ErrorResponse body = new ErrorResponse(
-                ex.getStatus().getReasonPhrase(),
-                ex.getMessage(),
-                ex.getStatus().value(),
-                request.getRequestURI()
-        );
-        return ResponseEntity.status(ex.getStatus()).body(body);
+  // App-level exceptions (business)
+  @ExceptionHandler(AppException.class)
+  public ResponseEntity<ErrorResponse> handleApp(AppException ex, HttpServletRequest request) {
+    ErrorResponse body =
+        new ErrorResponse(
+            ex.getStatus().getReasonPhrase(),
+            ex.getMessage(),
+            ex.getStatus().value(),
+            request.getRequestURI());
+    return ResponseEntity.status(ex.getStatus()).body(body);
+  }
+
+  // Validation errors from @Valid on @RequestBody (DTO fields)
+  @ExceptionHandler(MethodArgumentNotValidException.class)
+  public ResponseEntity<ErrorResponse> handleMethodArgNotValid(
+      MethodArgumentNotValidException ex, HttpServletRequest request) {
+    Map<String, String> details =
+        ex.getBindingResult().getFieldErrors().stream()
+            .collect(
+                Collectors.toMap(
+                    FieldError::getField,
+                    fe -> fe.getDefaultMessage() == null ? "invalid" : fe.getDefaultMessage(),
+                    (a, b) -> a + "; " + b));
+
+    ErrorResponse body =
+        new ErrorResponse(
+            HttpStatus.BAD_REQUEST.getReasonPhrase(),
+            "Xác thực thất bại",
+            HttpStatus.BAD_REQUEST.value(),
+            request.getRequestURI(),
+            details);
+    return ResponseEntity.badRequest().body(body);
+  } // Constraint violations on single params, path variables etc.
+
+  @ExceptionHandler(ConstraintViolationException.class)
+  public ResponseEntity<ErrorResponse> handleConstraintViolation(
+      ConstraintViolationException ex, HttpServletRequest request) {
+    Map<String, String> details = new HashMap<>();
+    for (ConstraintViolation<?> v : ex.getConstraintViolations()) {
+      String path = v.getPropertyPath().toString();
+      details.put(path, v.getMessage());
+    }
+    ErrorResponse body =
+        new ErrorResponse(
+            HttpStatus.BAD_REQUEST.getReasonPhrase(),
+            "Vi phạm ràng buộc",
+            HttpStatus.BAD_REQUEST.value(),
+            request.getRequestURI(),
+            details);
+    return ResponseEntity.badRequest().body(body);
+  }
+
+  // JSON parse issues (invalid JSON or field type mismatch)
+  @ExceptionHandler(HttpMessageNotReadableException.class)
+  public ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(
+      HttpMessageNotReadableException ex, HttpServletRequest request) {
+    String msg = "Yêu cầu JSON không đúng định dạng";
+    Throwable cause = ex.getCause();
+    Map<String, String> details = null;
+
+    if (cause instanceof InvalidFormatException ife) {
+      // invalid enum/value -> give hint about field and allowed values
+      String field =
+          ife.getPath().stream()
+              .map(JsonMappingException.Reference::getFieldName)
+              .filter(Objects::nonNull)
+              .collect(Collectors.joining("."));
+      String value = String.valueOf(ife.getValue());
+      msg = String.format("Giá trị không hợp lệ '%s' cho trường '%s'", value, field);
+      details = Map.of(field, "giá trị hoặc kiểu không hợp lệ");
+    } else {
+      // default include exception text minimally
+      msg = ex.getMessage();
     }
 
-    // Validation errors from @Valid on @RequestBody (DTO fields)
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> handleMethodArgNotValid(MethodArgumentNotValidException ex, HttpServletRequest request) {
-    Map<String, String> details = ex.getBindingResult().getFieldErrors().stream()
-        .collect(Collectors.toMap(
-            FieldError::getField,
-            fe -> fe.getDefaultMessage() == null ? "invalid" : fe.getDefaultMessage(),
-            (a, b) -> a + "; " + b
-        ));
+    ErrorResponse body =
+        new ErrorResponse(
+            HttpStatus.BAD_REQUEST.getReasonPhrase(),
+            msg,
+            HttpStatus.BAD_REQUEST.value(),
+            request.getRequestURI(),
+            details);
+    return ResponseEntity.badRequest().body(body);
+  }
 
-        ErrorResponse body = new ErrorResponse(
-                HttpStatus.BAD_REQUEST.getReasonPhrase(),
-                "Xác thực thất bại",
-                HttpStatus.BAD_REQUEST.value(),
-                request.getRequestURI(),
-                details
-        );
-        return ResponseEntity.badRequest().body(body);
-    }    // Constraint violations on single params, path variables etc.
-    @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<ErrorResponse> handleConstraintViolation(ConstraintViolationException ex, HttpServletRequest request) {
-        Map<String, String> details = new HashMap<>();
-        for (ConstraintViolation<?> v : ex.getConstraintViolations()) {
-            String path = v.getPropertyPath().toString();
-            details.put(path, v.getMessage());
-        }
-        ErrorResponse body = new ErrorResponse(
-                HttpStatus.BAD_REQUEST.getReasonPhrase(),
-                "Vi phạm ràng buộc",
-                HttpStatus.BAD_REQUEST.value(),
-                request.getRequestURI(),
-                details
-        );
-        return ResponseEntity.badRequest().body(body);
-    }
+  // Missing request parameter
+  @ExceptionHandler(MissingServletRequestParameterException.class)
+  public ResponseEntity<ErrorResponse> handleMissingParam(
+      MissingServletRequestParameterException ex, HttpServletRequest request) {
+    ErrorResponse body =
+        new ErrorResponse(
+            HttpStatus.BAD_REQUEST.getReasonPhrase(),
+            "Thiếu tham số: " + ex.getParameterName(),
+            HttpStatus.BAD_REQUEST.value(),
+            request.getRequestURI(),
+            Map.of(ex.getParameterName(), "bắt buộc"));
+    return ResponseEntity.badRequest().body(body);
+  }
 
-    // JSON parse issues (invalid JSON or field type mismatch)
-    @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(HttpMessageNotReadableException ex, HttpServletRequest request) {
-        String msg = "Yêu cầu JSON không đúng định dạng";
-        Throwable cause = ex.getCause();
-        Map<String, String> details = null;
-
-        if (cause instanceof InvalidFormatException ife) {
-            // invalid enum/value -> give hint about field and allowed values
-            String field = ife.getPath().stream()
-                    .map(JsonMappingException.Reference::getFieldName)
-                    .filter(Objects::nonNull).collect(Collectors.joining("."));
-            String value = String.valueOf(ife.getValue());
-            msg = String.format("Giá trị không hợp lệ '%s' cho trường '%s'", value, field);
-            details = Map.of(field, "giá trị hoặc kiểu không hợp lệ");
-        } else {
-            // default include exception text minimally
-            msg = ex.getMessage();
-        }
-
-        ErrorResponse body = new ErrorResponse(
-                HttpStatus.BAD_REQUEST.getReasonPhrase(),
-                msg,
-                HttpStatus.BAD_REQUEST.value(),
-                request.getRequestURI(),
-                details
-        );
-        return ResponseEntity.badRequest().body(body);
-    }
-
-    // Missing request parameter
-    @ExceptionHandler(MissingServletRequestParameterException.class)
-    public ResponseEntity<ErrorResponse> handleMissingParam(MissingServletRequestParameterException ex, HttpServletRequest request) {
-        ErrorResponse body = new ErrorResponse(
-                HttpStatus.BAD_REQUEST.getReasonPhrase(),
-                "Thiếu tham số: " + ex.getParameterName(),
-                HttpStatus.BAD_REQUEST.value(),
-                request.getRequestURI(),
-                Map.of(ex.getParameterName(), "bắt buộc")
-        );
-        return ResponseEntity.badRequest().body(body);
-    }
-
-    // fallback - unexpected errors
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleAll(Exception ex, HttpServletRequest request) {
-        log.error("Unhandled exception", ex);
-        ErrorResponse body = new ErrorResponse(
-                HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
-                "Đã xảy ra lỗi không mong đợi",
-                HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                request.getRequestURI()
-        );
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
-    }
+  // fallback - unexpected errors
+  @ExceptionHandler(Exception.class)
+  public ResponseEntity<ErrorResponse> handleAll(Exception ex, HttpServletRequest request) {
+    log.error("Unhandled exception", ex);
+    ErrorResponse body =
+        new ErrorResponse(
+            HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
+            "Đã xảy ra lỗi không mong đợi",
+            HttpStatus.INTERNAL_SERVER_ERROR.value(),
+            request.getRequestURI());
+    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
+  }
 }

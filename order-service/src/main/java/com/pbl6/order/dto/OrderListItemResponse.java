@@ -6,9 +6,8 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 public record OrderListItemResponse(
-        UUID id,
-        BigDecimal totalAmount,
-        OrderStatus status,
-        LocalDateTime createdAt,
-        LocalDateTime scheduledAt
-) {}
+    UUID id,
+    BigDecimal totalAmount,
+    OrderStatus status,
+    LocalDateTime createdAt,
+    LocalDateTime scheduledAt) {}
