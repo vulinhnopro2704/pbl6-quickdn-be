@@ -65,5 +65,24 @@ public class PayosWebhookPayload {
         
         @JsonProperty("desc")
         private String desc;
+
+        // Additional fields present in incoming webhook example
+        @JsonProperty("counterAccountBankId")
+        private String counterAccountBankId;
+
+        @JsonProperty("counterAccountBankName")
+        private String counterAccountBankName;
+
+        @JsonProperty("counterAccountName")
+        private String counterAccountName;
+
+        @JsonProperty("counterAccountNumber")
+        private String counterAccountNumber;
+
+        @JsonProperty("virtualAccountName")
+        private String virtualAccountName;
+
+        @JsonProperty("virtualAccountNumber")
+        private String virtualAccountNumber;
     }
 }
