@@ -329,10 +329,10 @@ public class PaymentController {
             )
             @RequestBody PayosWebhookPayload payload) {
         
-        log.info("Received webhook: orderCode={}, paymentLinkId={}, code={}", 
+        log.info("Received webhook: orderCode={}, paymentLinkId={}, code={}, amount={}, transactionDateTime={}",
             payload.getData().getOrderCode(),
             payload.getData().getPaymentLinkId(),
-            payload.getCode());
+            payload.getCode(), payload.getData().getAmount(), payload.getData().getTransactionDateTime());
         
         // TODO: Implement webhook signature verification
         // String dataString = buildWebhookDataString(payload.getData());
