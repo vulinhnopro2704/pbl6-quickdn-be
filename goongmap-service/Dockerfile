@@ -1,21 +1,42 @@
-FROM openjdk:26-ea-22-slim-bookworm
+# Multi-stage build for Node.js TypeScript application
+FROM node:20-alpine AS builder
+
 WORKDIR /app
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl tzdata && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# Copy package files
+COPY package*.json ./
 
-# Set timezone to Vietnam
-ENV TZ=Asia/Ho_Chi_Minh
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+# Install dependencies
+RUN npm ci --only=production && npm cache clean --force
 
-RUN useradd --create-home --uid 1000 appuser && \
-    mkdir -p /app/logs && \
-    chown -R appuser:appuser /app
+# Copy source code
+COPY . .
 
-COPY --chown=appuser:appuser build/libs/*.jar app.jar
-ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Djava.security.egd=file:/dev/./urandom -Duser.timezone=Asia/Ho_Chi_Minh"
-USER appuser
+# Build TypeScript
+RUN npm run build
 
-ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]
+# Production stage
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files and install only production dependencies
+COPY package*.json ./
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy built files from builder
+COPY --from=builder /app/dist ./dist
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=8082
+
+# Expose port
+EXPOSE 8082
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:8082/', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+
+# Start the application
+CMD ["node", "dist/app.js"]

@@ -138,7 +138,9 @@ public class LoggingFilter implements Filter {
         if (uri.startsWith("/api/auth")) return "AUTH";
         if (uri.startsWith("/api/order")) return "ORDER";
         if (uri.startsWith("/api/payment")) return "PAYMENT";
-        if (uri.startsWith("/api/goongmap")) return "GOONGMAP";
+        if (uri.startsWith("/api/map")) return "GOONGMAP";
+        if (uri.startsWith("/api/ai")) return "AI";
+        if (uri.startsWith("/api/file")) return "FILE";
         return "UNKNOWN";
     }
 

@@ -28,6 +28,12 @@ public class Routes {
     @Value("${services.file.url}")
     private String fileServiceUrl;
 
+    @Value("${services.prometheus.url}")
+    private String prometheusUrl;
+
+    @Value("${services.grafana.url}")
+    private String grafanaUrl;
+
     @Bean
     public RouterFunction<ServerResponse> authServiceRoute() {
         return GatewayRouterFunctions.route("auth-service")
@@ -38,7 +44,7 @@ public class Routes {
     @Bean
     public RouterFunction<ServerResponse> goongMapServiceRoute() {
         return GatewayRouterFunctions.route("goongmap-service")
-                .route(RequestPredicates.path("/api/goongmap/**"), HandlerFunctions.http(goongmapServiceUrl))
+                .route(RequestPredicates.path("/api/map/**"), HandlerFunctions.http(goongmapServiceUrl))
                 .build();
     }
 
@@ -67,6 +73,20 @@ public class Routes {
     public RouterFunction<ServerResponse> fileServiceRoute() {
         return GatewayRouterFunctions.route("file-service")
                 .route(RequestPredicates.path("/api/file/**"), HandlerFunctions.http(fileServiceUrl))
+                .build();
+    }
+
+    @Bean
+    public RouterFunction<ServerResponse> prometheusRoute() {
+        return GatewayRouterFunctions.route("prometheus")
+                .route(RequestPredicates.path("/api/prometheus/**"), HandlerFunctions.http(prometheusUrl))
+                .build();
+    }
+
+    @Bean
+    public RouterFunction<ServerResponse> grafanaRoute() {
+        return GatewayRouterFunctions.route("grafana")
+                .route(RequestPredicates.path("/api/grafana/**"), HandlerFunctions.http(grafanaUrl))
                 .build();
     }
 }
