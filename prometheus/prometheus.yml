@@ -68,7 +68,7 @@ scrape_configs:
 
   # Goongmap Service metrics
   - job_name: 'goongmap-service'
-    metrics_path: '/api/goongmap/actuator/prometheus'
+    metrics_path: '/api/map/actuator/prometheus'
     scrape_interval: 10s
     static_configs:
       - targets: ['goongmap-service:8082']
