@@ -44,7 +44,7 @@ public class Routes {
     @Bean
     public RouterFunction<ServerResponse> goongMapServiceRoute() {
         return GatewayRouterFunctions.route("goongmap-service")
-                .route(RequestPredicates.path("/api/goongmap/**"), HandlerFunctions.http(goongmapServiceUrl))
+                .route(RequestPredicates.path("/api/map/**"), HandlerFunctions.http(goongmapServiceUrl))
                 .build();
     }
 

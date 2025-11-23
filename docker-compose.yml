@@ -194,28 +194,21 @@ services:
     expose:
       - "8082"
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
-      SERVER_PORT: 8082
-      DB_HOST: goongmap-db
-      DB_PORT: 5432
-      DB_NAME: ${GOONGMAP_DB_NAME:-goongmap_db}
-      DB_USER: ${GOONGMAP_DB_USER:-goongmap_user}
-      DB_PASS: ${GOONGMAP_DB_PASSWORD:-goongmap_password}
+      NODE_ENV: production
+      PORT: 8082
       GOONGMAP_API_KEY: ${GOONGMAP_API_KEY}
+      GOONGMAP_API_URL: ${GOONGMAP_API_URL}
       TZ: Asia/Ho_Chi_Minh
     volumes:
       - goongmap-service-logs:/app/logs
-    depends_on:
-      goongmap-db:
-        condition: service_healthy
     networks:
       - pbl6-network
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8082/actuator/health || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8082/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 40s
     restart: no
 
   order-service:
