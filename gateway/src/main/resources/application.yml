@@ -16,19 +16,18 @@ management:
     health:
       show-details: always
     prometheus:
-      enabled: true
+      access: unrestricted
   metrics:
-    export:
-      prometheus:
-        enabled: true
     tags:
       application: ${spring.application.name}
       environment: ${SPRING_PROFILES_ACTIVE:dev}
     distribution:
       percentiles-histogram:
         http.server.requests: true
-      slo:
-        http.server.requests: 50ms,100ms,200ms,300ms,500ms,1s,2s
+  prometheus:
+    metrics:
+      export:
+        enabled: true
 
 # Logging Configuration
 logging:
@@ -67,3 +66,7 @@ services:
     url: ${AI_SERVICE_URL}
   file:
     url: ${FILE_SERVICE_URL}
+  prometheus:
+    url: ${PROMETHEUS_URL}
+  grafana:
+    url: ${GRAFANA_URL}
