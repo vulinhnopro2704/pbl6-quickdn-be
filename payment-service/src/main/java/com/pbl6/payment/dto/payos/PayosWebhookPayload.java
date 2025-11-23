@@ -1,5 +1,6 @@
 package com.pbl6.payment.dto.payos;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -14,6 +15,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class PayosWebhookPayload {
     
     @JsonProperty("code")
@@ -66,7 +68,6 @@ public class PayosWebhookPayload {
         @JsonProperty("desc")
         private String desc;
 
-        // Additional fields present in incoming webhook example
         @JsonProperty("counterAccountBankId")
         private String counterAccountBankId;
 

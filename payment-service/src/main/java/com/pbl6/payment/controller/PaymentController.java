@@ -6,6 +6,8 @@ import com.pbl6.payment.dto.payos.PayosWebhookPayload;
 import com.pbl6.payment.entity.Payment;
 import com.pbl6.payment.exception.PaymentNotFoundException;
 import com.pbl6.payment.service.PaymentService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -39,7 +41,10 @@ import org.springframework.web.bind.annotation.*;
 public class PaymentController {
     
     private final PaymentService paymentService;
-    
+
+    // ObjectMapper for logging payloads as JSON
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     /**
      * Create payment link
      */
@@ -155,7 +160,6 @@ public class PaymentController {
     @PostMapping("/")
     public ResponseEntity<PaymentResponse> createPayment(
             @Valid @RequestBody CreatePaymentRequest request) {
-        
         log.info("Received create payment request: orderCode={}, amount={}", 
             request.getOrderCode(), request.getAmount());
         
@@ -327,13 +331,44 @@ public class PaymentController {
                     )
                 )
             )
-            @RequestBody PayosWebhookPayload payload) {
-        
+            @RequestBody(required = false) PayosWebhookPayload payload) {
+
+        // Defensive null checks to avoid NPEs from malformed or partial payloads
+        if (payload == null) {
+            log.warn("Received empty webhook payload");
+            return ResponseEntity.badRequest().body("Missing request body");
+        }
+
+        if (payload.getData() == null) {
+            log.warn("Webhook payload missing 'data' field: {}", payload);
+            return ResponseEntity.badRequest().body("Missing 'data' in payload");
+        }
+
+        // Log full payload as JSON (safe serialization)
+        try {
+            String payloadJson = OBJECT_MAPPER.writeValueAsString(payload);
+            log.info("Webhook payload JSON: {}", payloadJson);
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to serialize webhook payload to JSON, falling back to toString()", e);
+            log.info("Webhook payload (toString): {}", payload);
+        }
+
+        // Extract safely for logging to avoid chained NPE
+        Long orderCode = payload.getData().getOrderCode();
+        String paymentLinkId = payload.getData().getPaymentLinkId();
+        String code = payload.getCode();
+        Long amount = payload.getData().getAmount();
+        String transactionDateTime = payload.getData().getTransactionDateTime();
+
         log.info("Received webhook: orderCode={}, paymentLinkId={}, code={}, amount={}, transactionDateTime={}",
-            payload.getData().getOrderCode(),
-            payload.getData().getPaymentLinkId(),
-            payload.getCode(), payload.getData().getAmount(), payload.getData().getTransactionDateTime());
-        
+            orderCode, paymentLinkId, code, amount, transactionDateTime);
+
+        // Basic validation: signature must be present
+        if (payload.getSignature() == null || payload.getSignature().isBlank()) {
+            log.warn("Webhook payload missing signature: orderCode={}, paymentLinkId={}", orderCode, paymentLinkId);
+            return ResponseEntity.badRequest().body("Missing signature");
+        }
+
         // TODO: Implement webhook signature verification
         // String dataString = buildWebhookDataString(payload.getData());
         // boolean isValid = SignatureHelper.verifyWebhookSignature(
@@ -387,3 +422,4 @@ public class PaymentController {
             .build();
     }
 }
+
