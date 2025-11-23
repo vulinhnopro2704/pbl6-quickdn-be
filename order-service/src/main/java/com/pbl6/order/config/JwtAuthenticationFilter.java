@@ -24,60 +24,66 @@ import java.util.stream.Collectors;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private final JwtUtils jwtUtils;
+  private final JwtUtils jwtUtils;
 
-    public JwtAuthenticationFilter(JwtUtils jwtUtils) {
-        this.jwtUtils = jwtUtils;
-    }
+  public JwtAuthenticationFilter(JwtUtils jwtUtils) {
+    this.jwtUtils = jwtUtils;
+  }
 
-    @Override
-    protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain)
-            throws ServletException, IOException {
+  @Override
+  protected void doFilterInternal(
+      HttpServletRequest req, HttpServletResponse res, FilterChain chain)
+      throws ServletException, IOException {
 
-        try {
-            String authHeader = req.getHeader(HttpHeaders.AUTHORIZATION);
-            String token = jwtUtils.resolveFromHeader(authHeader);
+    try {
+      String authHeader = req.getHeader(HttpHeaders.AUTHORIZATION);
+      String token = jwtUtils.resolveFromHeader(authHeader);
 
-            if (StringUtils.hasText(token)) {
-                log.debug("JWT token found in request to: {}", req.getRequestURI());
-                
-                if (jwtUtils.validate(token)) {
-                    // Lấy subject (phone hoặc userId tuỳ bạn set khi tạo token)
-                    String subject = jwtUtils.getSubject(token);
+      if (StringUtils.hasText(token)) {
+        log.debug("JWT token found in request to: {}", req.getRequestURI());
 
-                    // Lấy roles từ token
-                    List<String> roleNames = jwtUtils.getRolesFromToken(token);
+        if (jwtUtils.validate(token)) {
+          // Lấy subject (phone hoặc userId tuỳ bạn set khi tạo token)
+          String subject = jwtUtils.getSubject(token);
 
-                    List<SimpleGrantedAuthority> authorities = roleNames.stream()
-                            .filter(Objects::nonNull)
-                            .map(String::trim)
-                            .filter(s -> !s.isEmpty())
-                            .map(SimpleGrantedAuthority::new)
-                            .collect(Collectors.toList());
+          // Lấy roles từ token
+          List<String> roleNames = jwtUtils.getRolesFromToken(token);
 
-                    UsernamePasswordAuthenticationToken auth =
-                            new UsernamePasswordAuthenticationToken(subject, null, authorities);
+          List<SimpleGrantedAuthority> authorities =
+              roleNames.stream()
+                  .filter(Objects::nonNull)
+                  .map(String::trim)
+                  .filter(s -> !s.isEmpty())
+                  .map(SimpleGrantedAuthority::new)
+                  .collect(Collectors.toList());
 
-                    SecurityContextHolder.getContext().setAuthentication(auth);
-                    log.debug("Successfully authenticated user: {} with roles: {}", subject, roleNames);
-                } else {
-                    log.warn("Invalid JWT token for request to: {}", req.getRequestURI());
-                }
-            } else {
-                log.debug("No JWT token found in request to: {}", req.getRequestURI());
-            }
-        } catch (io.jsonwebtoken.JwtException ex) {
-            // token invalid/expired
-            SecurityContextHolder.clearContext();
-            log.warn("JWT validation failed for request to {}: {}", req.getRequestURI(), ex.getMessage());
-        } catch (Exception ex) {
-            SecurityContextHolder.clearContext();
-            log.error("Unexpected error in JWT filter for request to {}: {}", req.getRequestURI(), ex.getMessage(), ex);
+          UsernamePasswordAuthenticationToken auth =
+              new UsernamePasswordAuthenticationToken(subject, null, authorities);
+
+          SecurityContextHolder.getContext().setAuthentication(auth);
+          log.debug("Successfully authenticated user: {} with roles: {}", subject, roleNames);
+        } else {
+          log.warn("Invalid JWT token for request to: {}", req.getRequestURI());
         }
-
-        chain.doFilter(req, res);
+      } else {
+        log.debug("No JWT token found in request to: {}", req.getRequestURI());
+      }
+    } catch (io.jsonwebtoken.JwtException ex) {
+      // token invalid/expired
+      SecurityContextHolder.clearContext();
+      log.warn("JWT validation failed for request to {}: {}", req.getRequestURI(), ex.getMessage());
+    } catch (Exception ex) {
+      SecurityContextHolder.clearContext();
+      log.error(
+          "Unexpected error in JWT filter for request to {}: {}",
+          req.getRequestURI(),
+          ex.getMessage(),
+          ex);
     }
 
-    // nếu bạn muốn skip filtering cho một vài path (ví dụ /health), override shouldNotFilter...
+    chain.doFilter(req, res);
+  }
+
+  // nếu bạn muốn skip filtering cho một vài path (ví dụ /health), override shouldNotFilter...
 
 }

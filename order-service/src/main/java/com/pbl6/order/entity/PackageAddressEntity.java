@@ -15,25 +15,23 @@ import java.util.UUID;
 @Setter
 @NoArgsConstructor
 public class PackageAddressEntity {
-    @Id
-    @GeneratedValue
-    private UUID id;
+  @Id @GeneratedValue private UUID id;
 
-    @Column(name = "detail", length = 500, nullable = false)
-    private String detail;
+  @Column(name = "detail", length = 500, nullable = false)
+  private String detail;
 
-    @Column(length = 200)
-    private String name;
+  @Column(length = 200)
+  private String name;
 
-    @Column(length = 30)
-    private String phone;
+  @Column(length = 30)
+  private String phone;
 
-    @Column(precision = 9, scale = 6)
-    private BigDecimal latitude;
+  @Column(precision = 9, scale = 6)
+  private BigDecimal latitude;
 
-    @Column(precision = 9, scale = 6)
-    private BigDecimal longitude;
+  @Column(precision = 9, scale = 6)
+  private BigDecimal longitude;
 
-    @Column(name = "created_at", nullable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+  @Column(name = "created_at", nullable = false)
+  private LocalDateTime createdAt = LocalDateTime.now();
 }
