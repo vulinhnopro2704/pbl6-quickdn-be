@@ -55,8 +55,39 @@ jobs:
           echo "Found requirements.txt"
           cat requirements.txt
 
+      - name: Set up Node.js for Node Services
+        if: matrix.service == 'goongmap-service'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: '${{ matrix.service }}/package-lock.json'
+
+      - name: Install Node.js dependencies
+        if: matrix.service == 'goongmap-service'
+        run: |
+          cd ${{ matrix.service }}
+          npm ci
+
+      - name: Build Node.js service
+        if: matrix.service == 'goongmap-service'
+        run: |
+          cd ${{ matrix.service }}
+          npm run build
+
+      - name: Verify Node.js build output
+        if: matrix.service == 'goongmap-service'
+        run: |
+          cd ${{ matrix.service }}
+          if [ ! -d "dist" ]; then
+            echo "Error: dist directory not found after build"
+            exit 1
+          fi
+          echo "Build successful, dist directory created"
+          ls -lah dist/
+
       - name: Set up JDK 21
-        if: matrix.service != 'ai-service' && matrix.service != 'file-service'
+        if: matrix.service != 'ai-service' && matrix.service != 'file-service' && matrix.service != 'goongmap-service'
         uses: actions/setup-java@v4
         with:
           java-version: '21'
@@ -64,18 +95,18 @@ jobs:
           cache: 'gradle'
 
       - name: Grant execute permission for gradlew
-        if: matrix.service != 'ai-service' && matrix.service != 'file-service'
+        if: matrix.service != 'ai-service' && matrix.service != 'file-service' && matrix.service != 'goongmap-service'
         run: |
           chmod +x ${{ matrix.service }}/gradlew
 
       - name: Build with Gradle
-        if: matrix.service != 'ai-service' && matrix.service != 'file-service'
+        if: matrix.service != 'ai-service' && matrix.service != 'file-service' && matrix.service != 'goongmap-service'
         run: |
           cd ${{ matrix.service }}
           ./gradlew clean bootJar --no-daemon
 
       - name: Verify JAR file exists
-        if: matrix.service != 'ai-service' && matrix.service != 'file-service'
+        if: matrix.service != 'ai-service' && matrix.service != 'file-service' && matrix.service != 'goongmap-service'
         run: |
           shopt -s nullglob
           FILES=(${{ matrix.service }}/build/libs/*.jar)
@@ -181,11 +212,6 @@ jobs:
             AUTH_DB_NAME=${{ secrets.AUTH_DB_NAME }}
             AUTH_DB_USER=${{ secrets.AUTH_DB_USER }}
             AUTH_DB_PASSWORD=${{ secrets.AUTH_DB_PASSWORD }}
-            
-            # Database Configuration - Goongmap Service
-            GOONGMAP_DB_NAME=${{ secrets.GOONGMAP_DB_NAME }}
-            GOONGMAP_DB_USER=${{ secrets.GOONGMAP_DB_USER }}
-            GOONGMAP_DB_PASSWORD=${{ secrets.GOONGMAP_DB_PASSWORD }}
             
             # Database Configuration - Order Service
             ORDER_DB_NAME=${{ secrets.ORDER_DB_NAME }}
