@@ -297,7 +297,7 @@ services:
       DB_PORT: 5432
       DB_NAME: ${AI_DB_NAME}
       DB_USER: ${AI_DB_USER}
-      DB_PASSWORD: ${AI_DB_PASSWORD}
+      DB_PASS: ${AI_DB_PASSWORD}
     depends_on:
       ai-db:
         condition: service_healthy
