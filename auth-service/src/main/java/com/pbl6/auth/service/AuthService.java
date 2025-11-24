@@ -60,7 +60,7 @@ public class AuthService {
         user.setPhone(phone);
         user.setPassword(encoder.encode(rawPassword));
         user.setFullName(fullName);
-        user.getRoles().add(Role.ROLE_USER);
+        user.getRoles().add(Role.USER);
 
         return userRepo.save(user);
     }
