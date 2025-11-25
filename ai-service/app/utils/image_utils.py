@@ -10,19 +10,19 @@ from app.config.database import get_async_db
 from app.services.face_service import verify_from_service
 from app.types.response import error_response, success_response
 
+
 def read_image_from_url(url: str) -> bytes:
     r = requests.get(url, stream=True)
     r.raise_for_status()
     return r.content
 
-async def get_user_img_url(uuid: str, db: AsyncSession) -> List[str]:
+
+async def get_user_img_url(uuid: str, db: AsyncSession):
     try:
         user = await db.execute(select(FaceData).filter(FaceData.user_id == uuid))
-        url_list = []
         user_record = user.scalars().first()
-        if user_record:
-            url_list = user_record.img_url
-        else:
+
+        if not user_record:
             return JSONResponse(
                 status_code=404,
                 content=error_response(
@@ -32,25 +32,29 @@ async def get_user_img_url(uuid: str, db: AsyncSession) -> List[str]:
                     path="/face/verify"
                 )
             )
-        return url_list
-    except JSONResponse as json_resp:
-        return json_resp
+
+        return user_record.img_url
+
     except Exception as e:
         return JSONResponse(
-            status_code=500,
+            status_code=400,
             content=error_response(
-                error="Internal Server Error",
-                message="Not valid uuid format",
-                status=500,
+                error="Bad Request",
+                message=f"Invalid UUID format: {str(e)}",
+                status=400,
                 path="/face/verify"
             )
         )
 
+
 async def calculate_similarity_for_user(uuid: str, image: bytes, db: AsyncSession) -> Dict[str, Any]:
     try:
         url_list = await get_user_img_url(uuid, db)
-        
-        if not url_list:
+
+        if isinstance(url_list, JSONResponse):
+            return url_list
+
+        if len(url_list) == 0:
             return JSONResponse(
                 status_code=404,
                 content=error_response(
@@ -60,56 +64,60 @@ async def calculate_similarity_for_user(uuid: str, image: bytes, db: AsyncSessio
                     path="/face/verify"
                 )
             )
-        
-        sum_similarity = 0.0
-        count = 0
+
+        server_images = []
         errors = []
-        
+
         for url in url_list:
             try:
-                server_image = read_image_from_url(url)
-                result = await verify_from_service(server_image, image)
-                
-                if not result.get('success'):
-                    errors.append(f"Service error for {url}: {result.get('error')}")
-                    continue
-                
-                similarity_score = result['data']['similarity']
-                sum_similarity += similarity_score
-                count += 1
-            except requests.exceptions.RequestException as e:
-                errors.append(f"Failed to fetch image from {url}: {str(e)}")
-            except KeyError as e:
-                errors.append(f"Invalid response format for {url}: missing key {str(e)}")
+                img = read_image_from_url(url)
+                server_images.append(img)
             except Exception as e:
-                errors.append(f"Error processing image from {url}: {str(e)}")
-        
-        if count == 0:
+                errors.append(f"Failed to fetch image {url}: {str(e)}")
+
+        if len(server_images) == 0:
             return JSONResponse(
                 status_code=500,
                 content=error_response(
                     error="Processing Failed",
-                    message="Failed to process any face images",
+                    message="Failed to download any face images for this user",
                     status=500,
                     path="/face/verify",
-                    validation_errors={"processing_errors": ", ".join(errors)}
+                    validation_errors={"download_errors": errors}
                 )
             )
-        
-        avg_similarity = sum_similarity / count
-        
+
+        result = await verify_from_service(server_images, image)
+
+        if not result.get("success"):
+            return JSONResponse(
+                status_code=500,
+                content=error_response(
+                    error="Face Verification Failed",
+                    message=result.get("error"),
+                    status=500,
+                    path="/face/verify"
+                )
+            )
+
+        data = result["data"]
+
+        avg_sim = data["similarity_avg"]
+        match = data["match"]
+
         return success_response(
             data={
-                "similarity": avg_similarity,
-                "match": avg_similarity > FACE_SIMILARITY_THRESHOLD,
-                "images_processed": count,
+                "similarity": avg_sim,
+                "match": match,
+                "images_processed": data["count_valid"],
                 "total_images": len(url_list),
-                "errors": errors if errors else None
+                "errors": errors + (data["errors"] or [])
             }
         )
-        
+
     except HTTPException:
         raise
+
     except Exception as e:
         return JSONResponse(
             status_code=500,
