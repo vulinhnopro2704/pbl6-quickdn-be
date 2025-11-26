@@ -171,8 +171,6 @@ public class OrderController {
     // If role param provided -> validate it's one of allowed values
     String roleToUse = null;
     if (role != null && !role.isBlank()) {
-      // Normalize e.g. accept "USER" or "ROLE_USER" (optional)
-      if (!role.startsWith("ROLE_")) role = "ROLE_" + role;
       // check user has this role
       if (!roles.contains(role)) {
         throw AppException.forbidden("Bạn không có role được yêu cầu: " + role);
@@ -181,10 +179,10 @@ public class OrderController {
     } else {
       // no role param: derive default behavior
       // prefer admin if user has it, else use union of roles (handled in service)
-      if (roles.contains("ROLE_ADMIN")) {
-        roleToUse = "ROLE_ADMIN";
+      if (roles.contains("ADMIN")) {
+        roleToUse = "ADMIN";
       } else {
-        roleToUse = "ROLE_USER"; // default to USER
+        roleToUse = "USER"; // default to USER
       }
     }
 
