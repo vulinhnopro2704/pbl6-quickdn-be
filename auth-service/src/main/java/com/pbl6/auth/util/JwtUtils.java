@@ -112,9 +112,14 @@ public class JwtUtils {
                 .parseClaimsJws(token).getBody();
     }
 
-    public String getSubject(String token) {
-        return getAllClaims(token).getSubject();
-    }
+  public String getSubject(String token) {
+    return Jwts.parserBuilder()
+        .setSigningKey(key)
+        .build()
+        .parseClaimsJws(token)
+        .getBody()
+        .getSubject();
+  }
 
     public String getJti(String token) {
         return getAllClaims(token).getId();

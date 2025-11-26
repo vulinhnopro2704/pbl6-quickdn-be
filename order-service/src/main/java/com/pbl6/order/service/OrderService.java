@@ -183,8 +183,8 @@ public class OrderService {
   public Page<OrderDetailResponse> getOrdersByRoleSelector(
       UUID currentUserId,
       Set<String> actualRoles,
-      String roleToUse, // e.g. "ROLE_USER", "ROLE_DRIVER", "ROLE_ADMIN", or null (auto)
-      UUID filterUserId, // only meaningful if roleToUse == ROLE_ADMIN
+      String roleToUse, // e.g. "USER", "DRIVER", "ADMIN", or null (auto)
+      UUID filterUserId, // only meaningful if roleToUse == ADMIN
       String q,
       String status,
       String paymentMethod,
@@ -192,7 +192,7 @@ public class OrderService {
       LocalDate toDate,
       Pageable pageable) {
     // If roleToUse is explicitly admin, ensure actualRoles contains it (controller checked already)
-    if ("ROLE_ADMIN".equals(roleToUse)) {
+    if ("ADMIN".equals(roleToUse)) {
       Specification<OrderEntity> spec = (root, query, cb) -> null;
       if (filterUserId != null) spec = spec.and(OrderSpecifications.belongsToUser(filterUserId));
       // add common filters
@@ -201,7 +201,7 @@ public class OrderService {
     }
 
     // If roleToUse is explicitly DRIVER
-    if ("ROLE_DRIVER".equals(roleToUse)) {
+    if ("DRIVER".equals(roleToUse)) {
       if (currentUserId == null) throw AppException.badRequest("Không xác định driverId từ token");
       Specification<OrderEntity> spec = OrderSpecifications.hasShipperId(currentUserId);
       spec = applyCommonFilters(spec, q, status, paymentMethod, fromDate, toDate);
@@ -209,7 +209,7 @@ public class OrderService {
     }
 
     // If roleToUse is explicitly USER
-    if ("ROLE_USER".equals(roleToUse)) {
+    if ("USER".equals(roleToUse)) {
       if (currentUserId == null) throw AppException.badRequest("Không xác định userId từ token");
       Specification<OrderEntity> spec = OrderSpecifications.belongsToUser(currentUserId);
       spec = applyCommonFilters(spec, q, status, paymentMethod, fromDate, toDate);
@@ -228,12 +228,12 @@ public class OrderService {
     Specification<OrderEntity> roleSpec =
         (root, query, cb) -> {
           Predicate or = cb.disjunction();
-          if (actualRoles.contains("ROLE_USER")) {
+          if (actualRoles.contains("USER")) {
             if (currentUserId == null)
               throw AppException.badRequest("Không xác định userId từ token");
             or = cb.or(or, cb.equal(root.get("creatorId"), currentUserId));
           }
-          if (actualRoles.contains("ROLE_DRIVER")) {
+          if (actualRoles.contains("DRIVER")) {
             if (currentUserId == null)
               throw AppException.badRequest("Không xác định driverId từ token");
             or = cb.or(or, cb.equal(root.get("shipperId"), currentUserId));
@@ -269,12 +269,12 @@ public class OrderService {
         orderRepo.findById(orderId).orElseThrow(() -> AppException.badRequest("Order not found"));
 
     // If admin -> allow
-    if (roleNames != null && roleNames.contains("ROLE_ADMIN")) {
+    if (roleNames != null && roleNames.contains("ADMIN")) {
       return OrderMapper.toDetail(entity);
     }
 
     // If driver -> allow if they are assigned shipper
-    if (roleNames != null && roleNames.contains("ROLE_DRIVER")) {
+    if (roleNames != null && roleNames.contains("DRIVER")) {
       UUID shipperId = entity.getShipperId();
       if (shipperId != null && shipperId.equals(currentUserId)) {
         return OrderMapper.toDetail(entity);
@@ -282,7 +282,7 @@ public class OrderService {
     }
 
     // If regular user -> allow if creator
-    if (roleNames != null && roleNames.contains("ROLE_USER")) {
+    if (roleNames != null && roleNames.contains("USER")) {
       if (entity.getCreatorId().equals(currentUserId)) {
         return OrderMapper.toDetail(entity);
       }
@@ -311,9 +311,9 @@ public class OrderService {
       return OrderMapper.toDetail(order);
     }
 
-    boolean isAdmin = roleNames != null && roleNames.contains("ROLE_ADMIN");
-    boolean isDriver = roleNames != null && roleNames.contains("ROLE_DRIVER");
-    boolean isUser = roleNames != null && roleNames.contains("ROLE_USER");
+    boolean isAdmin = roleNames != null && roleNames.contains("ADMIN");
+    boolean isDriver = roleNames != null && roleNames.contains("DRIVER");
+    boolean isUser = roleNames != null && roleNames.contains("USER");
 
     // ---------- Authorization: kiểm tra permission (ANY role thỏa là ok) ----------
     boolean permitted = false;
@@ -418,9 +418,9 @@ public class OrderService {
         orderRepo.findById(orderId).orElseThrow(() -> AppException.badRequest("Order not found"));
 
     // Authorization
-    boolean isAdmin = roles != null && roles.contains("ROLE_ADMIN");
-    boolean isDriver = roles != null && roles.contains("ROLE_DRIVER");
-    boolean isUser = roles != null && roles.contains("ROLE_USER");
+    boolean isAdmin = roles != null && roles.contains("ADMIN");
+    boolean isDriver = roles != null && roles.contains("DRIVER");
+    boolean isUser = roles != null && roles.contains("USER");
 
     if (!(isAdmin
         || (isDriver && order.getShipperId() != null && order.getShipperId().equals(currentUserId))
