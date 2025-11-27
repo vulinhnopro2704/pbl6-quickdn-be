@@ -47,6 +47,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 // Lấy phone từ token
                 String phone = jwtUtils.getPhoneFromToken(token);
+                String subject = jwtUtils.getSubject(token);
 
                 // Lấy role list từ token (sử dụng helper mới trong jwtUtils)
                 List<String> roleNames = jwtUtils.getRolesFromToken(token);
@@ -65,7 +66,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     }
                     // Nếu muốn chắc chắn quyền lấy từ DB thay vì token, có thể override authorities ở đây:
                     // authorities = u.getRoles().stream().map(Role::name).map(SimpleGrantedAuthority::new).toList();
-                    var auth = new UsernamePasswordAuthenticationToken(phone, null, authorities);
+                    var auth = new UsernamePasswordAuthenticationToken(subject, null, authorities);
                     SecurityContextHolder.getContext().setAuthentication(auth);
                 });
 
