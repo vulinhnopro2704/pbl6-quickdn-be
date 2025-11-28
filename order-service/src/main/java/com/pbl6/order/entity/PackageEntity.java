@@ -56,6 +56,9 @@ public class PackageEntity {
   @Column(columnDefinition = "text")
   private String description;
 
+  @Column(name = "image_url", length = 500)
+  private String imageUrl;
+
   @Column(name = "created_at", nullable = false)
   private LocalDateTime createdAt = LocalDateTime.now();
 }

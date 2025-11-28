@@ -49,6 +49,10 @@ public class UserService {
       u.setDob(req.dob());
     }
 
+    if (req.avatarUrl() != null) {
+      u.setAvatarUrl(req.avatarUrl().trim());
+    }
+
     u = userRepo.save(u);
     return toResponse(u);
   }
@@ -72,6 +76,7 @@ public class UserService {
                         a.getCountry(),
                         a.getLatitude(),
                         a.getLongitude(),
+                        a.getDetail(),
                         a.getNote(),
                         a.isPrimary(),
                         a.getCreatedAt(),
@@ -88,6 +93,7 @@ public class UserService {
         u.isActive(),
         u.getCreatedAt(),
         u.getUpdatedAt(),
+        u.getAvatarUrl(),
         addrResponses);
   }
 
@@ -253,6 +259,7 @@ public class UserService {
     if (req.latitude() != null) a.setLatitude(req.latitude());
     if (req.longitude() != null) a.setLongitude(req.longitude());
     if (req.note() != null) a.setNote(trimOrNull(req.note()));
+    if (req.detail() != null) a.setDetail(trimOrNull(req.detail()));
 
     boolean requestPrimary = Boolean.TRUE.equals(req.isPrimary());
 
@@ -343,6 +350,7 @@ public class UserService {
         a.getCountry(),
         a.getLatitude(),
         a.getLongitude(),
+        a.getDetail(),
         a.getNote(),
         a.isPrimary(),
         a.getCreatedAt(),

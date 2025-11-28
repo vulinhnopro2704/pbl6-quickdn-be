@@ -51,6 +51,9 @@ public class UserAddress {
   @Column(name = "longitude", precision = 10, scale = 6)
   private BigDecimal longitude;
 
+  @Column(name = "detail", length = 300)
+  private String detail;
+
   @Column(name = "note", length = 300)
   private String note;
 
