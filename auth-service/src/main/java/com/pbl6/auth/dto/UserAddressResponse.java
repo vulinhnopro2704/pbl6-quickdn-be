@@ -13,6 +13,7 @@ public record UserAddressResponse(
     String country,
     BigDecimal latitude,
     BigDecimal longitude,
+    String detail,
     String note,
     boolean isPrimary,
     LocalDateTime createdAt,

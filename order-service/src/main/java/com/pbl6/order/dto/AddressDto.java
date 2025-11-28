@@ -29,5 +29,8 @@ public record AddressDto(
         @Pattern(regexp = "^0\\d{9,10}$", message = "Invalid phone number format")
         @NotBlank
         String phone,
+    @Schema(description = "Additional notes for the address", example = "Near school")
+        @Size(max = 500)
+        String note,
     @NotNull @Schema(description = "Latitude coordinate") Double latitude,
     @NotNull @Schema(description = "Longitude coordinate") Double longitude) {}

@@ -43,6 +43,9 @@ public class User {
   @Column(nullable = false)
   private boolean isActive = true;
 
+  @Column(name = "avatar_url", length = 500)
+  private String avatarUrl;
+
   @Column(name = "created_at", updatable = false)
   private LocalDateTime createdAt;
 
