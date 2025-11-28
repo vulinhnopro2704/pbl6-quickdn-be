@@ -16,4 +16,5 @@ public record UserResponse(
     boolean enabled,
     boolean isActive,
     LocalDateTime createdAt,
-    LocalDateTime updatedAt) {}
+    LocalDateTime updatedAt,
+    Set<UserAddressResponse> addresses) {}

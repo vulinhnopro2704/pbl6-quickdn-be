@@ -52,6 +52,13 @@ public class User {
   @Column(name = "deleted_at")
   private LocalDateTime deletedAt;
 
+  @OneToMany(
+      mappedBy = "user",
+      cascade = CascadeType.ALL,
+      orphanRemoval = true,
+      fetch = FetchType.LAZY)
+  private Set<UserAddress> addresses = new HashSet<>();
+
   @PrePersist
   protected void onCreate() {
     this.createdAt = LocalDateTime.now();
