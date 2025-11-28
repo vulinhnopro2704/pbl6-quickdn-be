@@ -18,4 +18,5 @@ public record PackageDto(
     @Schema(description = "Category of the package") PackageCategory category,
     @Schema(description = "Is COD enabled for this package") Boolean cod,
     @Schema(description = "COD amount") Double codAmount,
+    @Schema(description = "Image URL of the package") @NotBlank String imageUrl,
     @Schema(description = "Optional description") String description) {}

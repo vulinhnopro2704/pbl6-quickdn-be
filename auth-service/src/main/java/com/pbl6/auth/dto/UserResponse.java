@@ -17,4 +17,5 @@ public record UserResponse(
     boolean isActive,
     LocalDateTime createdAt,
     LocalDateTime updatedAt,
+    String avatarUrl,
     Set<UserAddressResponse> addresses) {}

@@ -24,6 +24,7 @@ public class OrderMapper {
         a.getDetail(),
         a.getName(),
         a.getPhone(),
+        a.getNote(),
         a.getLatitude() != null ? a.getLatitude().doubleValue() : null,
         a.getLongitude() != null ? a.getLongitude().doubleValue() : null);
   }
@@ -37,6 +38,7 @@ public class OrderMapper {
         p.getCodFee(),
         p.getPayerType(),
         p.getCategory(),
+        p.getImageUrl(),
         p.getDescription(),
         toAddress(p.getDropoffAddress()));
   }

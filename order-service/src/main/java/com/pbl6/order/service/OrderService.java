@@ -88,6 +88,7 @@ public class OrderService {
       pkg.setPackageSize(packageDto.size());
       pkg.setPayerType(packageDto.payerType());
       pkg.setDescription(packageDto.description());
+      pkg.setImageUrl(packageDto.imageUrl());
       if (packageDto.category() != null) {
         pkg.setCategory(packageDto.category());
       }
@@ -162,6 +163,7 @@ public class OrderService {
     addr.setDetail(addrDto.detail());
     addr.setName(addrDto.name());
     addr.setPhone(addrDto.phone());
+    addr.setNote(addrDto.note());
 
     // Entity dùng BigDecimal cho latitude/longitude => convert an toàn (null check)
     if (addrDto.latitude() != null) {

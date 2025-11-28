@@ -28,6 +28,7 @@ public record OrderDetailResponse(
       BigDecimal codFee,
       PayerType payerType,
       PackageCategory category,
+      String imageUrl,
       String description,
       AddressDto dropoffAddress) {}
 }

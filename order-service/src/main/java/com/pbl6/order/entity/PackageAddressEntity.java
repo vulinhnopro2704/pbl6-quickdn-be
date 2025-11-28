@@ -32,6 +32,9 @@ public class PackageAddressEntity {
   @Column(precision = 9, scale = 6)
   private BigDecimal longitude;
 
+  @Column(name = "note", length = 500)
+  private String note;
+
   @Column(name = "created_at", nullable = false)
   private LocalDateTime createdAt = LocalDateTime.now();
 }
