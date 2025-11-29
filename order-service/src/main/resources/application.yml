@@ -51,8 +51,8 @@ logging:
     org.springframework.security: WARN
     org.hibernate.SQL: WARN
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level - %msg%n"
-    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level %msg%n"
 # Swagger/OpenAPI Configuration
 springdoc:
   api-docs:
