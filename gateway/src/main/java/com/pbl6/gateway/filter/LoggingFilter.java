@@ -32,7 +32,7 @@ public class LoggingFilter implements Filter {
         HttpServletResponse httpResponse = (HttpServletResponse) response;
 
         String uri = httpRequest.getRequestURI();
-        boolean shouldLog = !uri.contains("prometheus") && !uri.contains("grafana") && !uri.contains("swagger");
+        boolean shouldLog = !uri.contains("prometheus") && !uri.contains("grafana") && !uri.contains("swagger") && !uri.contains("actuator");
 
         if (!shouldLog) {
             chain.doFilter(request, response);
