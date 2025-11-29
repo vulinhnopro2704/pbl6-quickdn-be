@@ -53,7 +53,7 @@ async def calculate_similarity_for_user(uuid: str, image: bytes, db: AsyncSessio
 
         if isinstance(url_list, JSONResponse):
             return url_list
-
+        
         if len(url_list) == 0:
             return JSONResponse(
                 status_code=404,
@@ -119,6 +119,9 @@ async def calculate_similarity_for_user(uuid: str, image: bytes, db: AsyncSessio
         raise
 
     except Exception as e:
+        print(repr(e))
+        print(type(e))
+        print(e.args)
         return JSONResponse(
             status_code=500,
             content=error_response(

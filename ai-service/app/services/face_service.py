@@ -14,8 +14,8 @@ async def verify_from_service(server_images: List[bytes], client_image: bytes):
         "image2",
         ("image2.jpg", client_image, "image/jpeg")
     ))
-
-    async with httpx.AsyncClient() as client:
+    timeout = httpx.Timeout(60.0)
+    async with httpx.AsyncClient(timeout=timeout) as client:
         res = await client.post(
             os.getenv("API_ENDPOINT") + "/verify",
             files=files
