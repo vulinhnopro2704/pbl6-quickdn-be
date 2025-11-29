@@ -13,7 +13,6 @@ import java.io.IOException;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Collections;
 import java.util.UUID;
 
 @Slf4j
@@ -24,7 +23,6 @@ public class LoggingFilter implements Filter {
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
     private static final ZoneId VIETNAM_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final String REQUEST_ID_HEADER = "X-Request-ID";
-    private static final String FORWARDED_TO_HEADER = "X-Forwarded-To";
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
@@ -32,6 +30,14 @@ public class LoggingFilter implements Filter {
         
         HttpServletRequest httpRequest = (HttpServletRequest) request;
         HttpServletResponse httpResponse = (HttpServletResponse) response;
+
+        String uri = httpRequest.getRequestURI();
+        boolean shouldLog = !uri.contains("prometheus") && !uri.contains("grafana") && !uri.contains("swagger");
+
+        if (!shouldLog) {
+            chain.doFilter(request, response);
+            return;
+        }
 
         // Wrap request and response for logging
         ContentCachingRequestWrapper requestWrapper = new ContentCachingRequestWrapper(httpRequest);
@@ -43,7 +49,7 @@ public class LoggingFilter implements Filter {
 
         try {
             // Log incoming request
-            logIncomingRequest(requestWrapper, requestId, vietnamTime);
+            logIncomingRequest(requestWrapper, requestId);
 
             // Add request ID to response header
             responseWrapper.setHeader(REQUEST_ID_HEADER, requestId);
@@ -72,7 +78,7 @@ public class LoggingFilter implements Filter {
             : UUID.randomUUID().toString();
     }
 
-    private void logIncomingRequest(HttpServletRequest request, String requestId, String vietnamTime) {
+    private void logIncomingRequest(HttpServletRequest request, String requestId) {
         String clientIp = getClientIp(request);
         String method = request.getMethod();
         String uri = request.getRequestURI();
@@ -85,7 +91,6 @@ public class LoggingFilter implements Filter {
         log.info("║ [GATEWAY] INCOMING REQUEST");
         log.info("╠═══════════════════════════════════════════════════════════════");
         log.info("║ Request ID     : {}", requestId);
-        log.info("║ Time (VN)      : {}", vietnamTime);
         log.info("║ Client IP      : {}", clientIp);
         log.info("║ Method         : {}", method);
         log.info("║ Path           : {}", fullUrl);
@@ -100,7 +105,6 @@ public class LoggingFilter implements Filter {
         String method = request.getMethod();
         String uri = request.getRequestURI();
         String targetService = determineTargetService(uri);
-        String vietnamTime = ZonedDateTime.now(VIETNAM_ZONE).format(FORMATTER);
         String statusEmoji = status < 400 ? "✓" : "✗";
         String logLevel = status < 400 ? "SUCCESS" : "ERROR";
 
@@ -108,7 +112,6 @@ public class LoggingFilter implements Filter {
         log.info("║ [GATEWAY] OUTGOING RESPONSE - {}", logLevel);
         log.info("╠═══════════════════════════════════════════════════════════════");
         log.info("║ Request ID     : {}", requestId);
-        log.info("║ Time (VN)      : {}", vietnamTime);
         log.info("║ Method         : {}", method);
         log.info("║ Path           : {}", uri);
         log.info("║ Target Service : {}", targetService);
@@ -120,13 +123,11 @@ public class LoggingFilter implements Filter {
     private void logError(HttpServletRequest request, String requestId, long duration, Exception e) {
         String method = request.getMethod();
         String uri = request.getRequestURI();
-        String vietnamTime = ZonedDateTime.now(VIETNAM_ZONE).format(FORMATTER);
 
         log.error("╔═══════════════════════════════════════════════════════════════");
         log.error("║ [GATEWAY] REQUEST FAILED");
         log.error("╠═══════════════════════════════════════════════════════════════");
         log.error("║ Request ID     : {}", requestId);
-        log.error("║ Time (VN)      : {}", vietnamTime);
         log.error("║ Method         : {}", method);
         log.error("║ Path           : {}", uri);
         log.error("║ Duration       : {} ms", duration);
