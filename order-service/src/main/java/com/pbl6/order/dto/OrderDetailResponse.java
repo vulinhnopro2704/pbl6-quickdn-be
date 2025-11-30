@@ -18,7 +18,8 @@ public record OrderDetailResponse(
     LocalDateTime scheduledAt,
     AddressDto pickupAddress,
     List<PackageItemResponse> packages,
-    UUID shipperId) {
+    UUID shipperId,
+    List<PriceAndRouteDto> priceAndRoutes) {
 
   public record PackageItemResponse(
       UUID id,
