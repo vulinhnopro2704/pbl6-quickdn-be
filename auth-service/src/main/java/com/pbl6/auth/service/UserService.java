@@ -155,6 +155,7 @@ public class UserService {
     a.setLatitude(lat);
     a.setLongitude(lon);
     a.setNote(trimOrNull(req.note()));
+    a.setDetail(trimOrNull(req.detail()));
 
     boolean hasExisting = !existing.isEmpty();
 

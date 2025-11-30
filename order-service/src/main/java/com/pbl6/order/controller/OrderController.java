@@ -416,4 +416,12 @@ public class OrderController {
         orderService.getOrderHistory(currentUserId, roles, orderId);
     return ResponseEntity.ok(history);
   }
+
+  @PostMapping("/price-route")
+  public ResponseEntity<List<PriceAndRouteDto>> computePriceAndRoute(
+      @RequestBody CreateOrderRequest request) {
+    List<PriceAndRouteDto> resp = orderService.computePriceAndRouteForOrder(request);
+    if (resp.isEmpty()) return ResponseEntity.status(503).build();
+    return ResponseEntity.ok(resp);
+  }
 }

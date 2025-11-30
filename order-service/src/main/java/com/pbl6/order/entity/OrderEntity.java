@@ -67,6 +67,9 @@ public class OrderEntity {
   @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
   private List<PackageEntity> packages = new ArrayList<>();
 
+  @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+  private List<OrderPriceRouteEntity> priceRoutes = new ArrayList<>();
+
   @PrePersist
   protected void onCreate() {
     this.createdAt = LocalDateTime.now();
