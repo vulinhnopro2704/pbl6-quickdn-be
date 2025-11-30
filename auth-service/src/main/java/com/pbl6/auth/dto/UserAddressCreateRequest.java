@@ -11,5 +11,6 @@ public record UserAddressCreateRequest(
     @Size(max = 100) String country,
     BigDecimal latitude,
     BigDecimal longitude,
+    @Size(max = 300) String detail,
     @Size(max = 300) String note,
     Boolean isPrimary) {}

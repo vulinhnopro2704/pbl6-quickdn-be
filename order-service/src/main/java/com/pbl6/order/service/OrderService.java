@@ -4,12 +4,8 @@ import com.pbl6.order.dto.*;
 import com.pbl6.order.entity.*;
 import com.pbl6.order.exception.AppException;
 import com.pbl6.order.mapper.OrderMapper;
-import com.pbl6.order.repository.OrderRepository;
-import com.pbl6.order.repository.OrderStatusHistoryRepository;
-import com.pbl6.order.repository.PackageAddressRepository;
-import com.pbl6.order.repository.PackageRepository;
+import com.pbl6.order.repository.*;
 import com.pbl6.order.spec.OrderSpecifications;
-import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -18,14 +14,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.*;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +29,9 @@ public class OrderService {
   private final PackageAddressRepository addressRepo;
   private final PricingService pricingService;
   private final OrderStatusHistoryRepository historyRepo;
+  private final GooongMapClientService gooongMapClient;
+  private final ShippingConfigRepository shippingConfigRepo;
+  private final SizeConfigRepository sizeConfigRepo;
 
   @Transactional
   public CreateOrderResponse createOrder(CreateOrderRequest req) {
@@ -67,9 +64,6 @@ public class OrderService {
     BigDecimal estimatedDistanceKm = BigDecimal.ZERO;
     int estimatedDurationMin = 0;
     BigDecimal totalAmount = BigDecimal.ZERO;
-
-    // ví dụ giá/ước lượng tạm thời (BigDecimal)
-    BigDecimal sampleValue = BigDecimal.valueOf(36.0);
 
     for (PackageDto packageDto : req.packages()) {
       PackageAddressEntity dropAddr = createAddress(packageDto.receiverAddress());
@@ -108,20 +102,6 @@ public class OrderService {
         }
         pkg.setCodFee(BigDecimal.ZERO);
       }
-
-      // estimate distance/duration/fee (hiện là giá cố định sampleValue)
-      // nếu bạn có pricingService, gọi nó để có giá chính xác thay vì dùng sampleValue
-      BigDecimal deliveryFee = sampleValue; // ví dụ tạm
-      pkg.setDeliveryFee(deliveryFee);
-      pkg.setEstimatedDistanceKm(sampleValue);
-      pkg.setEstimatedDurationMin(36);
-
-      // cộng dồn vào tổng (BigDecimal)
-      estimatedDistanceKm = estimatedDistanceKm.add(sampleValue);
-      estimatedDurationMin += 36;
-      totalAmount = totalAmount.add(deliveryFee);
-
-      // lưu package sẽ được cascade khi save order; nếu bạn muốn lưu riêng vẫn có thể
       packageEntities.add(pkg);
     }
 
@@ -138,10 +118,50 @@ public class OrderService {
       order.setPaymentMethod(PaymentMethod.CASH); // default
     }
 
+    List<PriceAndRouteDto> priceAndRouteDtos = computePriceAndRouteForOrder(req);
+    Map<Integer, PriceAndRouteDto> indexToPriceRoute = new HashMap<>();
+    for (PriceAndRouteDto dto : priceAndRouteDtos) {
+      indexToPriceRoute.put(dto.packageIndex(), dto);
+    }
+
+    for (int index = 0; index < packageEntities.size(); index++) {
+      PackageEntity pkg = packageEntities.get(index);
+      PriceAndRouteDto dto = indexToPriceRoute.get(index + 1); // packageIndex is 1-based
+      if (dto == null) {
+        throw AppException.badRequest(
+            "Không tìm thấy thông tin giá và lộ trình cho gói hàng thứ " + (index + 1));
+      }
+
+      pkg.setDeliveryFee(BigDecimal.valueOf(dto.price()));
+      pkg.setEstimatedDistanceKm(BigDecimal.valueOf((double)dto.distance()/1000));
+      pkg.setEstimatedDurationMin(
+          (int) Math.round((double) dto.estimatedDuration() / 60)); // convert giây sang phút
+      // cập nhật estimatedDistanceKm và estimatedDurationMin
+      estimatedDistanceKm = estimatedDistanceKm.max(pkg.getEstimatedDistanceKm());
+      estimatedDurationMin = Math.max(estimatedDurationMin, pkg.getEstimatedDurationMin());
+
+      // cộng dồn vào totalAmount của order
+      totalAmount = totalAmount.add(pkg.getDeliveryFee());
+    }
     order.setPackages(packageEntities);
     order.setEstimatedDistanceKm(estimatedDistanceKm);
     order.setEstimatedDurationMin(estimatedDurationMin);
     order.setTotalAmount(totalAmount);
+
+    if (!priceAndRouteDtos.isEmpty()) {
+      for (PriceAndRouteDto pr : priceAndRouteDtos) {
+        OrderPriceRouteEntity route = new OrderPriceRouteEntity();
+        route.setOrder(order); // bắt buộc để JPA thiết lập FK
+        route.setPrice(BigDecimal.valueOf(pr.price()));
+        route.setLatitude(BigDecimal.valueOf(pr.latitude()));
+        route.setLongitude(BigDecimal.valueOf(pr.longitude()));
+        route.setRouteIndex(pr.routeIndex());
+        route.setPackageIndex(pr.packageIndex());
+        route.setDistance(pr.distance());
+        route.setEstimatedDuration(pr.estimatedDuration());
+        order.getPriceRoutes().add(route);
+      }
+    }
 
     // temp assign shipper
     order.setShipperId(UUID.fromString("867c8938-37e3-4fa8-9805-2bccb70104f7"));
@@ -433,5 +453,207 @@ public class OrderService {
     List<OrderStatusHistory> histories = historyRepo.findAllByOrderIdOrderByCreatedAtAsc(orderId);
 
     return histories.stream().map(OrderMapper::toHistory).toList();
+  }
+
+  public List<PriceAndRouteDto> computePriceAndRouteForOrder(CreateOrderRequest order) {
+    StringBuilder origins =
+        new StringBuilder(
+            order.pickupAddress().latitude() + "," + order.pickupAddress().longitude());
+    Map<Integer, PackageDto> indexToPackage = new HashMap<>();
+    int index = 1;
+    double curWeight = 0;
+    for (PackageDto pkg : order.packages()) {
+      String location = pkg.receiverAddress().latitude() + "," + pkg.receiverAddress().longitude();
+      origins.append("|").append(location);
+      indexToPackage.put(index, pkg);
+      curWeight += pkg.weightKg();
+      index++;
+    }
+
+    try {
+      String vehicle = "bike";
+      DistanceMatrixRequest request =
+          new DistanceMatrixRequest(
+              origins.toString(), origins.toString(), vehicle); // destinations = origins
+      Mono<DistanceMatrixResponse> response = gooongMapClient.getDistanceMatrixWithQuery(request);
+      if (response == null) {
+        throw AppException.badRequest("Gooong Map API returned null response");
+      }
+      DistanceMatrixResponse data = response.block();
+      if (data == null) {
+        throw AppException.badRequest("Gooong Map API returned null data");
+      }
+      // distance
+      int[][] weightMatrix = toWeightMatrix(data, true);
+      int[][] durationMatrix = toWeightMatrix(data, false);
+      List<Integer> route = computeRoute(weightMatrix);
+      ShippingConfig cfg =
+          shippingConfigRepo
+              .findById(1L)
+              .orElseThrow(() -> new IllegalStateException("Shipping config (id=1) not found"));
+      List<PriceAndRouteDto> routeDtos = new ArrayList<>();
+      double curPrice = 0;
+      int distance = 0;
+      int estimatedDuration = 0;
+      int totalDestinations = route.size() - 1;
+      for (int i = 1; i < route.size(); i++) {
+        int fromIdx = route.get(i - 1);
+        int toIdx = route.get(i);
+        int weight = weightMatrix[fromIdx][toIdx];
+        int duration = durationMatrix[fromIdx][toIdx];
+        double distanceKm = weight / 1000.0;
+        distance += weight;
+        estimatedDuration += duration;
+        if (toIdx == 0) {
+          // returning to origin, skip
+          continue;
+        }
+
+        PackageDto pkg = indexToPackage.get(toIdx);
+        if (pkg == null) {
+          throw AppException.badRequest("Package not found for index: " + toIdx);
+        }
+
+        curPrice +=
+            calculateTotalShippingCost(distanceKm, curWeight, pkg.size(), cfg) / totalDestinations;
+
+        PriceAndRouteDto dto =
+            new PriceAndRouteDto(
+                Math.max(cfg.getMinFee(), Math.round(curPrice / 1000) * 1000),
+                pkg.receiverAddress().latitude(),
+                pkg.receiverAddress().longitude(),
+                i,
+                toIdx,
+                distance,
+                estimatedDuration);
+        totalDestinations--;
+        curWeight -= pkg.weightKg();
+        routeDtos.add(dto);
+      }
+      return routeDtos;
+    } catch (Exception e) {
+      throw AppException.badRequest("Failed to compute route: " + e.getMessage());
+    }
+  }
+
+  public int[][] toWeightMatrix(DistanceMatrixResponse resp, boolean forDistance) {
+    if (resp == null || resp.rows() == null) {
+      throw new IllegalArgumentException("DistanceMatrixResponse or rows is null");
+    }
+    int rowsCount = resp.rows().size();
+    if (rowsCount == 0) return new int[0][0];
+
+    int colsCount = resp.rows().getFirst().elements().size();
+    int[][] matrix = new int[rowsCount][colsCount];
+
+    for (int i = 0; i < rowsCount; i++) {
+      DistanceMatrixResponse.Row row = resp.rows().get(i);
+      if (row == null || row.elements() == null) {
+        throw new IllegalArgumentException("Row " + i + " is null or has no elements");
+      }
+      if (row.elements().size() != colsCount) {
+        throw new IllegalArgumentException("Inconsistent number of elements in row " + i);
+      }
+
+      for (int j = 0; j < colsCount; j++) {
+        DistanceMatrixResponse.Element el = row.elements().get(j);
+        if (el.status() == null || !el.status().equals("OK")) {
+          throw new IllegalArgumentException(
+              "Element at (" + i + "," + j + ") has invalid status: " + el.status());
+        }
+        if (forDistance) {
+          matrix[i][j] = el.distance().value();
+        } else {
+          matrix[i][j] = el.duration().value();
+        }
+      }
+    }
+    return matrix;
+  }
+
+  public List<Integer> computeRoute(int[][] weightMatrix) {
+    int n = weightMatrix.length; // including point A at index 0
+    int N = n - 1; // number of delivery points
+    int[][] dp = new int[1 << N][n];
+    int[][] parent = new int[1 << N][n];
+
+    // Init: from 0 to each point i
+    for (int i = 1; i < n; i++) {
+      int mask = 1 << (i - 1); // bit i-1 represents point i
+      dp[mask][i] = weightMatrix[0][i];
+      parent[mask][i] = 0;
+    }
+
+    // DP
+    for (int mask = 1; mask < (1 << N); mask++) {
+      for (int u = 1; u < n; u++) {
+        if ((mask & (1 << (u - 1))) == 0) continue;
+        int prevMask = mask ^ (1 << (u - 1));
+        if (prevMask == 0) continue;
+
+        dp[mask][u] = Integer.MAX_VALUE;
+        for (int v = 1; v < n; v++) {
+          if ((prevMask & (1 << (v - 1))) == 0) continue;
+          int cost = dp[prevMask][v] + weightMatrix[v][u];
+          if (cost < dp[mask][u]) {
+            dp[mask][u] = cost;
+            parent[mask][u] = v;
+          }
+        }
+      }
+    }
+
+    // Find best end point
+    int finalMask = (1 << N) - 1;
+    int end = -1;
+    int minCost = Integer.MAX_VALUE;
+    for (int u = 1; u < n; u++) {
+      if (dp[finalMask][u] < minCost) {
+        minCost = dp[finalMask][u];
+        end = u;
+      }
+    }
+
+    // Reconstruct path
+    List<Integer> path = new ArrayList<>();
+    int mask = finalMask;
+    while (end != 0) {
+      path.add(end);
+      int temp = parent[mask][end];
+      mask ^= (1 << (end - 1));
+      end = temp;
+    }
+    path.add(0);
+    Collections.reverse(path);
+    return path;
+  }
+
+  public double calculateTotalShippingCost(
+      double distanceKm, double actualWeightKg, PackageSize size, ShippingConfig cfg) {
+    SizeConfig sizeCfg =
+        sizeConfigRepo
+            .findBySizeCode(size)
+            .orElseThrow(
+                () -> new IllegalStateException("Size config not found for size: " + size));
+    // 1) distance fee
+    double extraKm = Math.max(0, distanceKm - cfg.getBaseKm());
+    long distanceFee = Math.round(cfg.getBaseKmFee() + extraKm * cfg.getRatePerKm());
+
+    // 2) size surcharge
+    long sizeFee = sizeCfg.getSurcharge();
+
+    // 3) weight fee
+    long weightFee = Math.round(actualWeightKg * cfg.getRatePerKg());
+
+    // 4) subtotal
+    double subtotal = distanceFee + sizeFee + weightFee;
+
+    // 5) fuel surcharge
+    if (cfg.getFuelSurchargePercent() != null && cfg.getFuelSurchargePercent() > 0) {
+      subtotal = subtotal * (1 + cfg.getFuelSurchargePercent() / 100.0);
+    }
+
+    //    return Math.max(cfg.getMinFee(), Math.round(subtotal));
+    return subtotal;
   }
 }
