@@ -591,7 +591,7 @@ public class OrderService {
         int prevMask = mask ^ (1 << (u - 1));
         if (prevMask == 0) continue;
 
-        dp[mask][u] = Integer.MAX_VALUE;
+        dp[mask][u] = Integer.MAX_VALUE/2;
         for (int v = 1; v < n; v++) {
           if ((prevMask & (1 << (v - 1))) == 0) continue;
           int cost = dp[prevMask][v] + weightMatrix[v][u];
@@ -606,7 +606,7 @@ public class OrderService {
     // Find best end point
     int finalMask = (1 << N) - 1;
     int end = -1;
-    int minCost = Integer.MAX_VALUE;
+    int minCost = Integer.MAX_VALUE/2;
     for (int u = 1; u < n; u++) {
       if (dp[finalMask][u] < minCost) {
         minCost = dp[finalMask][u];
