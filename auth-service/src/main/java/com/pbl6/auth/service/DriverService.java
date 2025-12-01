@@ -33,6 +33,12 @@ public class DriverService {
   @Transactional
   public DriverResponse register(DriverRegisterRequest req, UUID userId) {
 
+    driverRepo
+        .findByUserId(userId)
+        .ifPresent(
+            d -> {
+              throw AppException.conflict("User has already registered as driver");
+            });
     // Kiểm tra biển số xe đã tồn tại
     driverRepo
         .findByVehiclePlateNumber(req.vehiclePlateNumber().trim())
