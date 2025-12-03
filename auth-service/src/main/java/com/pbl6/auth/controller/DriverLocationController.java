@@ -17,22 +17,26 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class DriverLocationController {
 
-    private final DriverLocationService locationService;
+  private final DriverLocationService locationService;
 
-    @PutMapping("/{driverId}/location")
-    @PreAuthorize("hasAuthority('DRIVER')")
-    public ResponseEntity<DriverLocationResponse> updateLocation(
-            @RequestBody DriverLocationRequest req,
-            Authentication auth, @PathVariable UUID driverId) {
+  @PutMapping("/location")
+  @PreAuthorize("hasAuthority('DRIVER')")
+  public ResponseEntity<?> updateLocation(
+      @RequestBody DriverLocationRequest req, Authentication auth) {
 
-        UUID actor = UUID.fromString(auth.getName());
-        var resp = locationService.updateLocation(actor, driverId, req.latitude(), req.longitude());
-        return ResponseEntity.ok(resp);
+    UUID driverId = UUID.fromString(auth.getName());
+    boolean resp = locationService.updateLocation(req, driverId);
+    if (!resp) {
+      return ResponseEntity.badRequest().body("Failed to update location");
     }
+    return ResponseEntity.ok("Location updated successfully");
+  }
 
-    @GetMapping("/{driverId}/location")
-    public ResponseEntity<DriverLocationResponse> getLatest(@PathVariable UUID driverId, Authentication auth) {
-        Optional<DriverLocationResponse> opt = locationService.getLatest(driverId);
-        return opt.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.noContent().build());
-    }
+  @GetMapping("/{driverId}/location")
+  public ResponseEntity<DriverLocationResponse> getLatest(@PathVariable UUID driverId) {
+    Optional<DriverLocationResponse> opt = locationService.getLatestLocation(driverId);
+    return opt.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.noContent().build());
+  }
+
+
 }
