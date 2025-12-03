@@ -1,9 +1,6 @@
 package com.pbl6.auth.service;
 
-import com.pbl6.auth.dto.DriverListItemResponse;
-import com.pbl6.auth.dto.DriverRegisterRequest;
-import com.pbl6.auth.dto.DriverResponse;
-import com.pbl6.auth.dto.PageResult;
+import com.pbl6.auth.dto.*;
 import com.pbl6.auth.entity.*;
 import com.pbl6.auth.exception.AppException;
 import com.pbl6.auth.repository.DriverRepository;
@@ -15,6 +12,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,12 +21,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import static com.pbl6.auth.constant.RedisKeyConstants.DRIVER_FCM_TOKEN;
+
 @Service
 @RequiredArgsConstructor
 public class DriverService {
-
   private final DriverRepository driverRepo;
   private final UserRepository userRepository;
+  private final RedisTemplate<String, String> redisTemplate;
 
   @Transactional
   public DriverResponse register(DriverRegisterRequest req, UUID userId) {
@@ -52,7 +52,7 @@ public class DriverService {
 
     // Chuẩn hóa biển số xe (VD: AB-1234 → AB1234)
     d.setVehiclePlateNumber(req.vehiclePlateNumber().trim().toUpperCase());
-
+    d.setAvatarUrl(req.avatarUrl());
     d.setLicenseNumber(req.licenseNumber().trim());
 
     d.setIdentityFullName(trimOrNull(req.identityFullName()));
@@ -137,6 +137,7 @@ public class DriverService {
         d.getId(),
         d.getUserId(),
         d.getVehiclePlateNumber(),
+        d.getAvatarUrl(),
         d.getLicenseNumber(),
         d.getIdentityFullName(),
         d.getIdentityGender(),
@@ -152,6 +153,7 @@ public class DriverService {
         e.getId(),
         e.getUserId(),
         e.getVehiclePlateNumber(),
+        e.getAvatarUrl(),
         e.getLicenseNumber(),
         e.getIdentityFullName(),
         e.getIdentityNumber(),
@@ -166,5 +168,18 @@ public class DriverService {
         e.getApprovedAt(),
         e.getCreatedAt(),
         e.getUpdatedAt());
+  }
+
+  public void updateStatus(UUID driverId, UpdateStatus status) {
+    String driverFcmTokenKey = String.format(DRIVER_FCM_TOKEN, driverId);
+    if (status.isAvailable()) {
+      if (status.fcmToken() == null) {
+        throw AppException.badRequest("FCM token is required when setting driver to online");
+      } else {
+        redisTemplate.opsForValue().set(driverFcmTokenKey, status.fcmToken());
+      }
+    } else {
+        redisTemplate.delete(driverFcmTokenKey);
+    }
   }
 }

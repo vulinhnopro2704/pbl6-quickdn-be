@@ -1,11 +1,9 @@
 package com.pbl6.auth.controller;
 
-import com.pbl6.auth.dto.DriverListItemResponse;
-import com.pbl6.auth.dto.DriverRegisterRequest;
-import com.pbl6.auth.dto.DriverResponse;
-import com.pbl6.auth.dto.PageResult;
+import com.pbl6.auth.dto.*;
 import com.pbl6.auth.entity.DriverStatus;
 import com.pbl6.auth.entity.Gender;
+import com.pbl6.auth.exception.AppException;
 import com.pbl6.auth.service.DriverService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
@@ -75,6 +73,16 @@ public class DriverController {
 
     return driverService.listDrivers(
         q, status, gender, createdFrom, createdTo, ratingMin, ratingMax, pageIndex, size, sortObj);
+  }
+
+  @PostMapping("/update-status")
+  @PreAuthorize("hasAuthority('DRIVER')")
+  @Operation(summary = "Driver update status (online/offline)")
+  public ResponseEntity<?> updateStatus(
+      Authentication auth, @RequestBody UpdateStatus status) {
+    UUID driverId = UUID.fromString(auth.getName());
+    driverService.updateStatus(driverId, status);
+    return ResponseEntity.ok("Success");
   }
 
   private Sort parseSort(String input) {

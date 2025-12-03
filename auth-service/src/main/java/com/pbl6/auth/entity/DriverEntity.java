@@ -49,6 +49,9 @@ public class DriverEntity {
     @Column(name = "identity_address", columnDefinition = "text")
     private String identityAddress;        // Nơi thường trú
 
+    @Column(name = "avatar_url", length = 500)
+    private String avatarUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "identity_gender", length = 16)
     private Gender identityGender;         // Giới tính: MALE / FEMALE / OTHER

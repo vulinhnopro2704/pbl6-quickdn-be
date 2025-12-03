@@ -1,3 +1,5 @@
 package com.pbl6.auth.dto;
 
-public record DriverLocationRequest(double latitude, double longitude) {}
+import java.math.BigDecimal;
+
+public record DriverLocationRequest(BigDecimal latitude, BigDecimal longitude) {}
