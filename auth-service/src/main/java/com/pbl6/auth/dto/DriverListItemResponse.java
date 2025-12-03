@@ -11,6 +11,7 @@ public record DriverListItemResponse(
     UUID id,
     UUID userId,
     String vehiclePlateNumber,
+    String avatarUrl,
     String licenseNumber,
     String identityFullName,
     Gender identityGender,

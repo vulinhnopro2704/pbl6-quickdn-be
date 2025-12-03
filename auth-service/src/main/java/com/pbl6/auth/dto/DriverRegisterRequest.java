@@ -14,6 +14,10 @@ public record DriverRegisterRequest(
         @Size(max = 50)
         String vehiclePlateNumber,  // biển số xe
 
+        @NotBlank(message = "Avatar URL is required")
+        @Size(max = 500)
+        String avatarUrl,
+
         @NotBlank(message = "License number is required")
         @Size(max = 100)
         String licenseNumber,
