@@ -174,4 +174,12 @@ public class UserController {
     UserAddressResponse resp = userService.updateAddressForUserByAdmin(userId, addressId, req);
     return ResponseEntity.ok(resp);
   }
+
+    @PostMapping("/update-fcmtoken")
+    @Operation(summary = "User Update FCM Token")
+    public ResponseEntity<?> updateStatus(Authentication auth, @RequestBody UpdateFcmTokenRequest request) {
+        UUID userId = UUID.fromString(auth.getName());
+        userService.updateFcmToken(userId, request);
+        return ResponseEntity.ok("Success");
+    }
 }

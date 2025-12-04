@@ -15,6 +15,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -24,12 +25,16 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import static com.pbl6.auth.constant.RedisKeyConstants.DRIVER_FCM_TOKEN;
+import static com.pbl6.auth.constant.RedisKeyConstants.USER_FCM_TOKEN;
+
 @Service
 @RequiredArgsConstructor
 public class UserService {
 
   private final UserRepository userRepo;
   private final UserAddressRepository addressRepo;
+  private final RedisTemplate<String, String> redisTemplate;
 
   public UserResponse getById(UUID userId) {
     try {
@@ -366,5 +371,10 @@ public class UserService {
 
   private String trimOrNull(String s) {
     return s == null ? null : s.trim();
+  }
+
+  public void updateFcmToken(UUID userId, UpdateStatus status) {
+    String userFcmTokenKey = String.format(USER_FCM_TOKEN, userId);
+    redisTemplate.opsForValue().set(userFcmTokenKey, status.fcmToken());
   }
 }
