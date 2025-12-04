@@ -8,6 +8,8 @@ public final class RedisKeyConstants {
     public static final String ORDER_OFFERS_PREFIX = "order:%s:offers"; // String.format
     public static final String ORDER_STATE_PREFIX = "order:%s:state";
     public static final String DRIVER_FCM_TOKEN = "driver:%s:fcm_token";
+    public static final String USER_FCM_TOKEN = "user:%s:fcm_token";
+
 
 }
 
