@@ -21,6 +21,8 @@ public class OrderMapper {
         a.getDetail(),
         a.getName(),
         a.getPhone(),
+        a.getWardCode(),
+        a.getDistrictCode(),
         a.getNote(),
         a.getLatitude() != null ? a.getLatitude().doubleValue() : null,
         a.getLongitude() != null ? a.getLongitude().doubleValue() : null);

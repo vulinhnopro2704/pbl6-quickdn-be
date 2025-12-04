@@ -184,6 +184,8 @@ public class OrderService {
     addr.setName(addrDto.name());
     addr.setPhone(addrDto.phone());
     addr.setNote(addrDto.note());
+    addr.setWardCode(addrDto.wardCode());
+    addr.setDistrictCode(addrDto.districtCode());
 
     // Entity dùng BigDecimal cho latitude/longitude => convert an toàn (null check)
     if (addrDto.latitude() != null) {
@@ -214,7 +216,7 @@ public class OrderService {
       LocalDate toDate,
       Pageable pageable) {
     // If roleToUse is explicitly admin, ensure actualRoles contains it (controller checked already)
-    if ("ADMIN".equals(roleToUse)) {
+    if ("ADMIN".equals(roleToUse) || "DRIVER".equals(roleToUse)) {
       Specification<OrderEntity> spec = (root, query, cb) -> null;
       if (filterUserId != null) spec = spec.and(OrderSpecifications.belongsToUser(filterUserId));
       // add common filters
@@ -223,12 +225,12 @@ public class OrderService {
     }
 
     // If roleToUse is explicitly DRIVER
-    if ("DRIVER".equals(roleToUse)) {
-      if (currentUserId == null) throw AppException.badRequest("Không xác định driverId từ token");
-      Specification<OrderEntity> spec = OrderSpecifications.hasShipperId(currentUserId);
-      spec = applyCommonFilters(spec, q, status, paymentMethod, fromDate, toDate);
-      return orderRepo.findAll(spec, pageable).map(OrderMapper::toDetail);
-    }
+//    if ("DRIVER".equals(roleToUse)) {
+//      if (currentUserId == null) throw AppException.badRequest("Không xác định driverId từ token");
+//      Specification<OrderEntity> spec = OrderSpecifications.hasShipperId(currentUserId);
+//      spec = applyCommonFilters(spec, q, status, paymentMethod, fromDate, toDate);
+//      return orderRepo.findAll(spec, pageable).map(OrderMapper::toDetail);
+//    }
 
     // If roleToUse is explicitly USER
     if ("USER".equals(roleToUse)) {
