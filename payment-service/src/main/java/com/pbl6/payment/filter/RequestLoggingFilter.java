@@ -4,7 +4,6 @@ import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.ContentCachingRequestWrapper;
 import org.springframework.web.util.ContentCachingResponseWrapper;
@@ -14,7 +13,6 @@ import java.util.UUID;
 
 @Slf4j
 @Component
-@Order(1)
 public class RequestLoggingFilter implements Filter {
 
     private static final String REQUEST_ID_HEADER = "X-Request-ID";

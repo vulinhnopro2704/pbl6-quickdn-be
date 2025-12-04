@@ -4,17 +4,19 @@ import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.ContentCachingRequestWrapper;
 import org.springframework.web.util.ContentCachingResponseWrapper;
 
 import java.io.IOException;
+import java.util.Objects;
 import java.util.UUID;
 
 @Slf4j
 @Component
-@Order(1)
+@Order(Ordered.HIGHEST_PRECEDENCE)
 public class RequestLoggingFilter implements Filter {
 
     private static final String REQUEST_ID_HEADER = "X-Request-ID";
@@ -35,7 +37,8 @@ public class RequestLoggingFilter implements Filter {
         }
 
         ContentCachingRequestWrapper requestWrapper = new ContentCachingRequestWrapper(httpRequest);
-        ContentCachingResponseWrapper responseWrapper = new ContentCachingResponseWrapper(httpResponse);
+        ContentCachingResponseWrapper responseWrapper =
+            new ContentCachingResponseWrapper(Objects.requireNonNull(httpResponse));
 
         String requestId = getOrGenerateRequestId(httpRequest);
         long startTime = System.currentTimeMillis();
