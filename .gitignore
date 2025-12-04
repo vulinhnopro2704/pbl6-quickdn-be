@@ -50,3 +50,5 @@ Thumbs.db
 # Ignore Gradle build output directory
 build
 bin
+
+**/serviceAccountKey.json
