@@ -373,7 +373,7 @@ public class UserService {
     return s == null ? null : s.trim();
   }
 
-  public void updateFcmToken(UUID userId, UpdateStatus status) {
+  public void updateFcmToken(UUID userId, UpdateFcmTokenRequest status) {
     String userFcmTokenKey = String.format(USER_FCM_TOKEN, userId);
     redisTemplate.opsForValue().set(userFcmTokenKey, status.fcmToken());
   }
