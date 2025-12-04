@@ -216,7 +216,7 @@ public class OrderService {
       LocalDate toDate,
       Pageable pageable) {
     // If roleToUse is explicitly admin, ensure actualRoles contains it (controller checked already)
-    if ("ADMIN".equals(roleToUse) || "DRIVER".equals(roleToUse)) {
+    if ("ADMIN".equals(roleToUse)) {
       Specification<OrderEntity> spec = (root, query, cb) -> null;
       if (filterUserId != null) spec = spec.and(OrderSpecifications.belongsToUser(filterUserId));
       // add common filters
@@ -225,12 +225,12 @@ public class OrderService {
     }
 
     // If roleToUse is explicitly DRIVER
-//    if ("DRIVER".equals(roleToUse)) {
-//      if (currentUserId == null) throw AppException.badRequest("Không xác định driverId từ token");
-//      Specification<OrderEntity> spec = OrderSpecifications.hasShipperId(currentUserId);
-//      spec = applyCommonFilters(spec, q, status, paymentMethod, fromDate, toDate);
-//      return orderRepo.findAll(spec, pageable).map(OrderMapper::toDetail);
-//    }
+    if ("DRIVER".equals(roleToUse)) {
+      if (currentUserId == null) throw AppException.badRequest("Không xác định driverId từ token");
+      Specification<OrderEntity> spec = OrderSpecifications.hasShipperId(currentUserId);
+      spec = applyCommonFilters(spec, q, status, paymentMethod, fromDate, toDate);
+      return orderRepo.findAll(spec, pageable).map(OrderMapper::toDetail);
+    }
 
     // If roleToUse is explicitly USER
     if ("USER".equals(roleToUse)) {
@@ -293,17 +293,17 @@ public class OrderService {
         orderRepo.findById(orderId).orElseThrow(() -> AppException.badRequest("Order not found"));
 
     // If admin -> allow
-    if (roleNames != null && roleNames.contains("ADMIN")) {
+    if (roleNames != null && (roleNames.contains("ADMIN") || roleNames.contains("DRIVER"))) {
       return OrderMapper.toDetail(entity);
     }
 
     // If driver -> allow if they are assigned shipper
-    if (roleNames != null && roleNames.contains("DRIVER")) {
-      UUID shipperId = entity.getShipperId();
-      if (shipperId != null && shipperId.equals(currentUserId)) {
-        return OrderMapper.toDetail(entity);
-      }
-    }
+//    if (roleNames != null && roleNames.contains("DRIVER")) {
+//      UUID shipperId = entity.getShipperId();
+//      if (shipperId != null && shipperId.equals(currentUserId)) {
+//        return OrderMapper.toDetail(entity);
+//      }
+//    }
 
     // If regular user -> allow if creator
     if (roleNames != null && roleNames.contains("USER")) {
