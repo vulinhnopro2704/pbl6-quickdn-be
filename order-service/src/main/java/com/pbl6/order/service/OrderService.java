@@ -184,8 +184,8 @@ public class OrderService {
     addr.setName(addrDto.name());
     addr.setPhone(addrDto.phone());
     addr.setNote(addrDto.note());
-    addr.setWardCode(addrDto.wardCode());
-    addr.setDistrictCode(addrDto.districtCode());
+//    addr.setWardCode(addrDto.wardCode());
+//    addr.setDistrictCode(addrDto.districtCode());
 
     // Entity dùng BigDecimal cho latitude/longitude => convert an toàn (null check)
     if (addrDto.latitude() != null) {
