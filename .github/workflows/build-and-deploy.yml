@@ -153,7 +153,7 @@ jobs:
         if: matrix.service != 'ai-service' && matrix.service != 'file-service' && matrix.service != 'goongmap-service'
         run: |
           cd ${{ matrix.service }}
-          ./gradlew clean bootJar --no-daemon
+          ./gradlew --no-daemon --info clean bootJar
 
       - name: Verify JAR file exists
         if: matrix.service != 'ai-service' && matrix.service != 'file-service' && matrix.service != 'goongmap-service'
