@@ -26,8 +26,9 @@ class FirebaseConnectionTest {
     String encoded = System.getenv("FIREBASE_SERVICE_ACCOUNT_BASE64");
 
     assertThat(StringUtils.hasText(encoded))
-        .as(
-            "FIREBASE_SERVICE_ACCOUNT_BASE64 environment variable must be provided for build-time verification")
+        .withFailMessage(
+            "FIREBASE_SERVICE_ACCOUNT_BASE64 must be provided and contain a valid service_account JSON. Current value length: %s",
+            encoded == null ? 0 : encoded.length())
         .isTrue();
 
     FirebaseInitializer initializer = new FirebaseInitializer();
