@@ -63,6 +63,7 @@ dependencies {
     testImplementation 'org.testcontainers:junit-jupiter'
     testImplementation 'org.testcontainers:postgresql'
     testImplementation 'org.springframework.security:spring-security-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 group = 'com.pbl6'
@@ -74,8 +75,23 @@ tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
 }
 
-tasks.withType(Test) {
+tasks.named('test') {
     enabled = false
+}
+
+tasks.register('firebaseConnectionTest', Test) {
+    description = 'Validates Firebase credentials by initializing FirebaseApp'
+    group = 'verification'
+    dependsOn testClasses
+    useJUnitPlatform()
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    include '**/FirebaseConnectionTest.class'
+    environment 'FIREBASE_SERVICE_ACCOUNT_BASE64', System.getenv('FIREBASE_SERVICE_ACCOUNT_BASE64')
+}
+
+tasks.named('bootJar') {
+    dependsOn 'firebaseConnectionTest'
 }
 
 tasks.withType(Javadoc) {
