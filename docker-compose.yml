@@ -170,6 +170,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_ACCESS_EXP_MS: ${JWT_ACCESS_EXP_MS:-3600000}
       JWT_REFRESH_EXP_MS: ${JWT_REFRESH_EXP_MS:-86400000}
+      FIREBASE_SERVICE_ACCOUNT_BASE64: ${FIREBASE_SERVICE_ACCOUNT_BASE64:-}
       TZ: Asia/Ho_Chi_Minh
     volumes:
       - auth-service-logs:/app/logs
@@ -230,6 +231,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_ACCESS_EXP_MS: ${JWT_ACCESS_EXP_MS:-3600000}
       JWT_REFRESH_EXP_MS: ${JWT_REFRESH_EXP_MS:-86400000}
+      FIREBASE_SERVICE_ACCOUNT_BASE64: ${FIREBASE_SERVICE_ACCOUNT_BASE64:-}
       TZ: Asia/Ho_Chi_Minh
     volumes:
       - order-service-logs:/app/logs
