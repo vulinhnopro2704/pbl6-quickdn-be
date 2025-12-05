@@ -21,6 +21,43 @@ jobs:
     outputs:
       service_account_base64: ${{ steps.encode.outputs.base64 }}
     steps:
+      - name: Log Firebase secret lengths
+        run: |
+          python - <<'PY'
+          import os
+
+          keys = [
+              "FIREBASE_TYPE",
+              "FIREBASE_PROJECT_ID",
+              "FIREBASE_PRIVATE_KEY_ID",
+              "FIREBASE_PRIVATE_KEY",
+              "FIREBASE_CLIENT_EMAIL",
+              "FIREBASE_CLIENT_ID",
+              "FIREBASE_AUTH_URI",
+              "FIREBASE_TOKEN_URI",
+              "FIREBASE_AUTH_PROVIDER_X509_CERT_URL",
+              "FIREBASE_CLIENT_X509_CERT_URL",
+              "FIREBASE_UNIVERSE_DOMAIN",
+          ]
+
+          for key in keys:
+              value = os.environ.get(key, "")
+              length = len(value)
+              status = "EMPTY" if length == 0 else f"{length} chars"
+              print(f"{key}: {status}")
+          PY
+        env:
+          FIREBASE_TYPE: ${{ secrets.FIREBASE_TYPE }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_PRIVATE_KEY_ID: ${{ secrets.FIREBASE_PRIVATE_KEY_ID }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_CLIENT_ID: ${{ secrets.FIREBASE_CLIENT_ID }}
+          FIREBASE_AUTH_URI: ${{ secrets.FIREBASE_AUTH_URI }}
+          FIREBASE_TOKEN_URI: ${{ secrets.FIREBASE_TOKEN_URI }}
+          FIREBASE_AUTH_PROVIDER_X509_CERT_URL: ${{ secrets.FIREBASE_AUTH_PROVIDER_X509_CERT_URL }}
+          FIREBASE_CLIENT_X509_CERT_URL: ${{ secrets.FIREBASE_CLIENT_X509_CERT_URL }}
+          FIREBASE_UNIVERSE_DOMAIN: ${{ secrets.FIREBASE_UNIVERSE_DOMAIN }}
       - name: Prepare Firebase service account payload
         id: encode
         run: |
@@ -44,6 +81,8 @@ jobs:
           }
 
           encoded = base64.b64encode(json.dumps(payload).encode("utf-8")).decode("utf-8")
+
+          print(f"Firebase service account payload length: {len(encoded)} chars (base64)")
 
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
               fh.write(f"base64={encoded}\n")
