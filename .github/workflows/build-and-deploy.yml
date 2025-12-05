@@ -18,6 +18,7 @@ jobs:
   prepare-firebase:
     name: Prepare Firebase credentials
     runs-on: ubuntu-latest
+    environment: pbl6-backend-production
     outputs:
       service_account_base64: ${{ steps.encode.outputs.base64 }}
     steps:
@@ -40,11 +41,20 @@ jobs:
               "FIREBASE_UNIVERSE_DOMAIN",
           ]
 
+          missing = []
           for key in keys:
               value = os.environ.get(key, "")
               length = len(value)
               status = "EMPTY" if length == 0 else f"{length} chars"
               print(f"{key}: {status}")
+              if length == 0:
+                  missing.append(key)
+
+          if missing:
+              print("\n❌ Missing Firebase secrets:")
+              for key in missing:
+                  print(f"- {key}")
+              raise SystemExit("Aborting workflow because required Firebase secrets are empty.")
           PY
         env:
           FIREBASE_TYPE: ${{ secrets.FIREBASE_TYPE }}
