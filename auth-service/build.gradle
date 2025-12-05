@@ -74,8 +74,20 @@ tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
 }
 
-tasks.withType(Test) {
+tasks.named('test') {
     enabled = false
+}
+
+tasks.register('firebaseConnectionTest', Test) {
+    description = 'Validates Firebase credentials by initializing FirebaseApp'
+    group = 'verification'
+    useJUnitPlatform()
+    include 'com/pbl6/auth/config/FirebaseConnectionTest.class'
+    environment 'FIREBASE_SERVICE_ACCOUNT_BASE64', System.getenv('FIREBASE_SERVICE_ACCOUNT_BASE64')
+}
+
+tasks.named('bootJar') {
+    dependsOn 'firebaseConnectionTest'
 }
 
 tasks.withType(Javadoc) {

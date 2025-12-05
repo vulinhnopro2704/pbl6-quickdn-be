@@ -2,6 +2,7 @@ package com.pbl6.order.service;
 
 import com.pbl6.order.dto.*;
 import com.pbl6.order.entity.*;
+import com.pbl6.order.event.OrderCreatedEvent;
 import com.pbl6.order.exception.AppException;
 import com.pbl6.order.mapper.OrderMapper;
 import com.pbl6.order.repository.*;
@@ -9,9 +10,11 @@ import com.pbl6.order.spec.OrderSpecifications;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
@@ -20,6 +23,8 @@ import java.math.BigDecimal;
 import java.time.*;
 import java.time.format.DateTimeParseException;
 import java.util.*;
+
+import static com.pbl6.order.constant.RedisKeyConstants.ORDER_ASSIGNEE_KEY_PATTERN;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +37,8 @@ public class OrderService {
   private final GooongMapClientService gooongMapClient;
   private final ShippingConfigRepository shippingConfigRepo;
   private final SizeConfigRepository sizeConfigRepo;
+  private final ApplicationEventPublisher publisher;
+  private final RedisTemplate<String, String> redisTemplate;
 
   @Transactional
   public CreateOrderResponse createOrder(CreateOrderRequest req) {
@@ -133,7 +140,7 @@ public class OrderService {
       }
 
       pkg.setDeliveryFee(BigDecimal.valueOf(dto.price()));
-      pkg.setEstimatedDistanceKm(BigDecimal.valueOf((double)dto.distance()/1000));
+      pkg.setEstimatedDistanceKm(BigDecimal.valueOf((double) dto.distance() / 1000));
       pkg.setEstimatedDurationMin(
           (int) Math.round((double) dto.estimatedDuration() / 60)); // convert giây sang phút
       // cập nhật estimatedDistanceKm và estimatedDurationMin
@@ -163,16 +170,23 @@ public class OrderService {
       }
     }
 
-    // temp assign shipper
-    order.setShipperId(UUID.fromString("867c8938-37e3-4fa8-9805-2bccb70104f7"));
-
     if (req.scheduledAt() != null) {
       order.setScheduledAt(LocalDateTime.parse(req.scheduledAt()));
     }
 
     // SAVE order (packages sẽ được persist bởi cascade = CascadeType.ALL)
     orderRepo.save(order);
+    // PUBLISH event AFTER commit via @TransactionalEventListener (we still publish inside tx)
+    double lon =
+        order.getPickupAddress() != null && order.getPickupAddress().getLongitude() != null
+            ? order.getPickupAddress().getLongitude().doubleValue()
+            : 0.0;
+    double lat =
+        order.getPickupAddress() != null && order.getPickupAddress().getLatitude() != null
+            ? order.getPickupAddress().getLatitude().doubleValue()
+            : 0.0;
 
+    publisher.publishEvent(new OrderCreatedEvent(order.getId(), lon, lat));
     // trả về totalAmount (BigDecimal). CreateOrderResponse now uses OrderStatus enum for status
     return new CreateOrderResponse(
         order.getId(), order.getTotalAmount().doubleValue(), "VND", order.getStatus());
@@ -184,8 +198,8 @@ public class OrderService {
     addr.setName(addrDto.name());
     addr.setPhone(addrDto.phone());
     addr.setNote(addrDto.note());
-//    addr.setWardCode(addrDto.wardCode());
-//    addr.setDistrictCode(addrDto.districtCode());
+    //    addr.setWardCode(addrDto.wardCode());
+    //    addr.setDistrictCode(addrDto.districtCode());
 
     // Entity dùng BigDecimal cho latitude/longitude => convert an toàn (null check)
     if (addrDto.latitude() != null) {
@@ -298,12 +312,12 @@ public class OrderService {
     }
 
     // If driver -> allow if they are assigned shipper
-//    if (roleNames != null && roleNames.contains("DRIVER")) {
-//      UUID shipperId = entity.getShipperId();
-//      if (shipperId != null && shipperId.equals(currentUserId)) {
-//        return OrderMapper.toDetail(entity);
-//      }
-//    }
+    //    if (roleNames != null && roleNames.contains("DRIVER")) {
+    //      UUID shipperId = entity.getShipperId();
+    //      if (shipperId != null && shipperId.equals(currentUserId)) {
+    //        return OrderMapper.toDetail(entity);
+    //      }
+    //    }
 
     // If regular user -> allow if creator
     if (roleNames != null && roleNames.contains("USER")) {
@@ -593,7 +607,7 @@ public class OrderService {
         int prevMask = mask ^ (1 << (u - 1));
         if (prevMask == 0) continue;
 
-        dp[mask][u] = Integer.MAX_VALUE/2;
+        dp[mask][u] = Integer.MAX_VALUE / 2;
         for (int v = 1; v < n; v++) {
           if ((prevMask & (1 << (v - 1))) == 0) continue;
           int cost = dp[prevMask][v] + weightMatrix[v][u];
@@ -608,7 +622,7 @@ public class OrderService {
     // Find best end point
     int finalMask = (1 << N) - 1;
     int end = -1;
-    int minCost = Integer.MAX_VALUE/2;
+    int minCost = Integer.MAX_VALUE / 2;
     for (int u = 1; u < n; u++) {
       if (dp[finalMask][u] < minCost) {
         minCost = dp[finalMask][u];
@@ -657,5 +671,18 @@ public class OrderService {
 
     //    return Math.max(cfg.getMinFee(), Math.round(subtotal));
     return subtotal;
+  }
+
+  public OrderDetailResponse assignDriverToOrder(UUID driverId, UUID orderId) {
+    OrderEntity order =
+        orderRepo.findById(orderId).orElseThrow(() -> AppException.badRequest("Order not found"));
+    if (order.getShipperId() != null) {
+      throw AppException.badRequest("Order already has a driver assigned");
+    }
+    order.setShipperId(driverId);
+    String assigneeKey = String.format(ORDER_ASSIGNEE_KEY_PATTERN, orderId);
+    redisTemplate.opsForValue().set(assigneeKey, driverId.toString());
+    orderRepo.save(order);
+    return OrderMapper.toDetail(order);
   }
 }
