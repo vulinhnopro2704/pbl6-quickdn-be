@@ -81,8 +81,11 @@ tasks.named('test') {
 tasks.register('firebaseConnectionTest', Test) {
     description = 'Validates Firebase credentials by initializing FirebaseApp'
     group = 'verification'
+    dependsOn testClasses
     useJUnitPlatform()
-    include 'com/pbl6/order/config/FirebaseConnectionTest.class'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    include '**/FirebaseConnectionTest.class'
     environment 'FIREBASE_SERVICE_ACCOUNT_BASE64', System.getenv('FIREBASE_SERVICE_ACCOUNT_BASE64')
 }
 
