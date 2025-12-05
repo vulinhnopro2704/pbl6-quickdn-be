@@ -71,6 +71,9 @@ jwt:
   access-exp-ms: ${JWT_ACCESS_EXP_MS}
   refresh-exp-ms: ${JWT_REFRESH_EXP_MS}
 
+firebase:
+  service-account-base64: ${FIREBASE_SERVICE_ACCOUNT_BASE64:}
+
 gooongmap:
   base-url: ${GOOONGMAP_BASE_URL}
   distance-matrix-path: ${GOOONGMAP_DISTANCE_MATRIX_PATH}

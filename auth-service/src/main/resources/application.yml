@@ -77,3 +77,6 @@ jwt:
   secret: ${JWT_SECRET}
   access-exp-ms: ${JWT_ACCESS_EXP_MS}
   refresh-exp-ms: ${JWT_REFRESH_EXP_MS}
+
+firebase:
+  service-account-base64: ${FIREBASE_SERVICE_ACCOUNT_BASE64:}

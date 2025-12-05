@@ -15,10 +15,98 @@ env:
   REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
   
 jobs:
+  prepare-firebase:
+    name: Prepare Firebase credentials
+    runs-on: ubuntu-latest
+    outputs:
+      service_account_base64: ${{ steps.encode.outputs.base64 }}
+    steps:
+      - name: Log Firebase secret lengths
+        run: |
+          python - <<'PY'
+          import os
+
+          keys = [
+              "FIREBASE_TYPE",
+              "FIREBASE_PROJECT_ID",
+              "FIREBASE_PRIVATE_KEY_ID",
+              "FIREBASE_PRIVATE_KEY",
+              "FIREBASE_CLIENT_EMAIL",
+              "FIREBASE_CLIENT_ID",
+              "FIREBASE_AUTH_URI",
+              "FIREBASE_TOKEN_URI",
+              "FIREBASE_AUTH_PROVIDER_X509_CERT_URL",
+              "FIREBASE_CLIENT_X509_CERT_URL",
+              "FIREBASE_UNIVERSE_DOMAIN",
+          ]
+
+          for key in keys:
+              value = os.environ.get(key, "")
+              length = len(value)
+              status = "EMPTY" if length == 0 else f"{length} chars"
+              print(f"{key}: {status}")
+          PY
+        env:
+          FIREBASE_TYPE: ${{ secrets.FIREBASE_TYPE }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_PRIVATE_KEY_ID: ${{ secrets.FIREBASE_PRIVATE_KEY_ID }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_CLIENT_ID: ${{ secrets.FIREBASE_CLIENT_ID }}
+          FIREBASE_AUTH_URI: ${{ secrets.FIREBASE_AUTH_URI }}
+          FIREBASE_TOKEN_URI: ${{ secrets.FIREBASE_TOKEN_URI }}
+          FIREBASE_AUTH_PROVIDER_X509_CERT_URL: ${{ secrets.FIREBASE_AUTH_PROVIDER_X509_CERT_URL }}
+          FIREBASE_CLIENT_X509_CERT_URL: ${{ secrets.FIREBASE_CLIENT_X509_CERT_URL }}
+          FIREBASE_UNIVERSE_DOMAIN: ${{ secrets.FIREBASE_UNIVERSE_DOMAIN }}
+      - name: Prepare Firebase service account payload
+        id: encode
+        run: |
+          python - <<'PY'
+          import base64
+          import json
+          import os
+
+          payload = {
+              "type": os.environ["FIREBASE_TYPE"],
+              "project_id": os.environ["FIREBASE_PROJECT_ID"],
+              "private_key_id": os.environ["FIREBASE_PRIVATE_KEY_ID"],
+              "private_key": os.environ["FIREBASE_PRIVATE_KEY"].replace('\\n', '\n'),
+              "client_email": os.environ["FIREBASE_CLIENT_EMAIL"],
+              "client_id": os.environ["FIREBASE_CLIENT_ID"],
+              "auth_uri": os.environ["FIREBASE_AUTH_URI"],
+              "token_uri": os.environ["FIREBASE_TOKEN_URI"],
+              "auth_provider_x509_cert_url": os.environ["FIREBASE_AUTH_PROVIDER_X509_CERT_URL"],
+              "client_x509_cert_url": os.environ["FIREBASE_CLIENT_X509_CERT_URL"],
+              "universe_domain": os.environ["FIREBASE_UNIVERSE_DOMAIN"],
+          }
+
+          encoded = base64.b64encode(json.dumps(payload).encode("utf-8")).decode("utf-8")
+
+          print(f"Firebase service account payload length: {len(encoded)} chars (base64)")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write(f"base64={encoded}\n")
+          PY
+        env:
+          FIREBASE_TYPE: ${{ secrets.FIREBASE_TYPE }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_PRIVATE_KEY_ID: ${{ secrets.FIREBASE_PRIVATE_KEY_ID }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_CLIENT_ID: ${{ secrets.FIREBASE_CLIENT_ID }}
+          FIREBASE_AUTH_URI: ${{ secrets.FIREBASE_AUTH_URI }}
+          FIREBASE_TOKEN_URI: ${{ secrets.FIREBASE_TOKEN_URI }}
+          FIREBASE_AUTH_PROVIDER_X509_CERT_URL: ${{ secrets.FIREBASE_AUTH_PROVIDER_X509_CERT_URL }}
+          FIREBASE_CLIENT_X509_CERT_URL: ${{ secrets.FIREBASE_CLIENT_X509_CERT_URL }}
+          FIREBASE_UNIVERSE_DOMAIN: ${{ secrets.FIREBASE_UNIVERSE_DOMAIN }}
+
   build-and-push:
     name: Build and Push Images
     runs-on: ubuntu-latest
+    needs: prepare-firebase
     environment: pbl6-backend-production
+    env:
+      FIREBASE_SERVICE_ACCOUNT_BASE64: ${{ needs.prepare-firebase.outputs.service_account_base64 }}
     
     permissions:
       contents: read
@@ -37,6 +125,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
 
       - name: Set up Python for Python Services
         if: matrix.service == 'ai-service' || matrix.service == 'file-service'
@@ -103,7 +192,7 @@ jobs:
         if: matrix.service != 'ai-service' && matrix.service != 'file-service' && matrix.service != 'goongmap-service'
         run: |
           cd ${{ matrix.service }}
-          ./gradlew clean bootJar --no-daemon
+          ./gradlew --no-daemon --info clean bootJar
 
       - name: Verify JAR file exists
         if: matrix.service != 'ai-service' && matrix.service != 'file-service' && matrix.service != 'goongmap-service'
@@ -159,9 +248,11 @@ jobs:
   deploy:
     name: Deploy to VPS
     runs-on: ubuntu-latest
-    needs: [build-and-push]
+    needs: [prepare-firebase, build-and-push]
     if: github.ref == 'refs/heads/main'
     environment: pbl6-backend-production
+    env:
+      FIREBASE_SERVICE_ACCOUNT_BASE64: ${{ needs.prepare-firebase.outputs.service_account_base64 }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -178,6 +269,7 @@ jobs:
             mkdir -p ~/pbl6-backend
             echo "Project directory ready at: ~/pbl6-backend"
             ls -la ~/pbl6-backend
+
 
       - name: Create .env file on VPS
         uses: appleboy/ssh-action@v1.0.3
@@ -244,6 +336,9 @@ jobs:
             JWT_SECRET=${{ secrets.JWT_SECRET }}
             JWT_ACCESS_EXP_MS=${{ secrets.JWT_ACCESS_EXP_MS }}
             JWT_REFRESH_EXP_MS=${{ secrets.JWT_REFRESH_EXP_MS }}
+
+            # Firebase Credentials
+            FIREBASE_SERVICE_ACCOUNT_BASE64=${{ env.FIREBASE_SERVICE_ACCOUNT_BASE64 }}
             
             # Redis Configuration
             REDIS_PASS=${{ secrets.REDIS_PASS }}
