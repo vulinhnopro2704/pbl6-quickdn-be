@@ -5,6 +5,7 @@ import com.pbl6.auth.entity.DriverStatus;
 import com.pbl6.auth.entity.Gender;
 import com.pbl6.auth.exception.AppException;
 import com.pbl6.auth.service.DriverService;
+import com.pbl6.auth.service.FirebaseMessagingService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -18,6 +19,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -78,8 +80,7 @@ public class DriverController {
   @PostMapping("/update-status")
   @PreAuthorize("hasAuthority('DRIVER')")
   @Operation(summary = "Driver update status (online/offline)")
-  public ResponseEntity<?> updateStatus(
-      Authentication auth, @RequestBody UpdateStatus status) {
+  public ResponseEntity<?> updateStatus(Authentication auth, @RequestBody UpdateStatus status) {
     UUID driverId = UUID.fromString(auth.getName());
     driverService.updateStatus(driverId, status);
     return ResponseEntity.ok("Success");
@@ -91,5 +92,26 @@ public class DriverController {
     return parts[1].equalsIgnoreCase("desc")
         ? Sort.by(parts[0]).descending()
         : Sort.by(parts[0]).ascending();
+  }
+
+  private final FirebaseMessagingService messagingService;
+
+  @PostMapping("/notify")
+  public ResponseEntity<?> sendNotification(@RequestParam String token) throws Exception {
+    //        String response = messagingService.sendToToken(token, "🚀 Xin chào", "Thông báo thử
+    // nghiệm từ QuickDN");
+    Map<String, String> data =
+        Map.of(
+            "status", "🚗 Đang đến nơi",
+            "orderID", "41bb193a-f93d-4ecd-81fd-cea0cfe9d5a8",
+            "message", "Tài xế đang đến trong 3 phút");
+
+    String response =
+        messagingService.sendNotificationWithData(
+            token,
+            "📦 Đơn hàng sắp tới",
+            "Kiểm tra trạng thái đơn hàng ngay",
+            data);
+    return ResponseEntity.ok("Sent with ID: " + response);
   }
 }

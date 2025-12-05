@@ -19,6 +19,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.*;
@@ -422,6 +423,15 @@ public class OrderController {
       @RequestBody CreateOrderRequest request) {
     List<PriceAndRouteDto> resp = orderService.computePriceAndRouteForOrder(request);
     if (resp.isEmpty()) return ResponseEntity.status(503).build();
+    return ResponseEntity.ok(resp);
+  }
+
+  @PostMapping("/assign-shipper")
+  @PreAuthorize("hasAuthority('DRIVER')")
+  public ResponseEntity<OrderDetailResponse> assignShipperToOrder(
+      @RequestBody AssignDriverRequest request, Authentication auth) {
+    UUID driverId = UUID.fromString(auth.getName());
+    OrderDetailResponse resp = orderService.assignDriverToOrder(driverId, request.orderId());
     return ResponseEntity.ok(resp);
   }
 }
