@@ -198,6 +198,15 @@ jobs:
         run: |
           chmod +x ${{ matrix.service }}/gradlew
 
+      - name: Verify Firebase Base64 is available
+        if: matrix.service == 'auth-service' || matrix.service == 'order-service'
+        run: |
+          if [ -z "${FIREBASE_SERVICE_ACCOUNT_BASE64}" ]; then
+            echo "FIREBASE_SERVICE_ACCOUNT_BASE64 is empty in build job environment."
+            exit 1
+          fi
+          echo "FIREBASE_SERVICE_ACCOUNT_BASE64 length: ${#FIREBASE_SERVICE_ACCOUNT_BASE64}"
+
       - name: Build with Gradle
         if: matrix.service != 'ai-service' && matrix.service != 'file-service' && matrix.service != 'goongmap-service'
         run: |
