@@ -1,6 +1,7 @@
 package com.pbl6.order.controller;
 
 import com.pbl6.order.dto.*;
+import com.pbl6.order.entity.PackageEntity;
 import com.pbl6.order.exception.AppException;
 import com.pbl6.order.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -433,5 +434,21 @@ public class OrderController {
     UUID driverId = UUID.fromString(auth.getName());
     OrderDetailResponse resp = orderService.assignDriverToOrder(driverId, request.orderId());
     return ResponseEntity.ok(resp);
+  }
+
+  @PatchMapping("/{id}/package-status")
+  @PreAuthorize("hasAuthority('DRIVER')")
+  public ResponseEntity<?> updateStatus(
+      @PathVariable UUID id,
+      @Valid @RequestBody PackageStatusUpdateRequest request,
+      Authentication auth) {
+    UUID driverId = UUID.fromString(auth.getName());
+    OrderDetailResponse.PackageItemResponse updated =
+        orderService.updatePackageStatus(
+            id,
+            request.status(), // dùng record accessor
+            request.note(),
+            driverId);
+    return ResponseEntity.ok(updated);
   }
 }

@@ -6,6 +6,7 @@ import com.pbl6.order.entity.OrderStatusHistory;
 import com.pbl6.order.entity.PackageAddressEntity;
 import com.pbl6.order.entity.PackageEntity;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 public class OrderMapper {
@@ -21,8 +22,8 @@ public class OrderMapper {
         a.getDetail(),
         a.getName(),
         a.getPhone(),
-//        a.getWardCode(),
-//        a.getDistrictCode(),
+        a.getWardCode(),
+        a.getDistrictCode(),
         a.getNote(),
         a.getLatitude() != null ? a.getLatitude().doubleValue() : null,
         a.getLongitude() != null ? a.getLongitude().doubleValue() : null);
@@ -53,6 +54,9 @@ public class OrderMapper {
         p.getPayerType(),
         p.getCategory(),
         p.getImageUrl(),
+        p.getStatus(),
+        p.getStatusNote(),
+        p.getStatusUpdatedAt(),
         p.getDescription(),
         toAddress(p.getDropoffAddress()));
   }

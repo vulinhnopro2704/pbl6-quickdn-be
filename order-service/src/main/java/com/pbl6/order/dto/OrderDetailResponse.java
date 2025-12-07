@@ -1,9 +1,6 @@
 package com.pbl6.order.dto;
 
-import com.pbl6.order.entity.OrderStatus;
-import com.pbl6.order.entity.PayerType;
-import com.pbl6.order.entity.PackageCategory;
-import com.pbl6.order.entity.PackageSize;
+import com.pbl6.order.entity.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -30,6 +27,9 @@ public record OrderDetailResponse(
       PayerType payerType,
       PackageCategory category,
       String imageUrl,
+      PackageStatus packageStatus,
+      String statusNote,
+      LocalDateTime statusUpdatedAt,
       String description,
       AddressDto dropoffAddress) {}
 }
