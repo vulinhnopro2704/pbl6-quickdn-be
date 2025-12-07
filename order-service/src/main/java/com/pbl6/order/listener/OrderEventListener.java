@@ -17,7 +17,6 @@ public class OrderEventListener {
 
   @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
   public void handleOrderCreated(OrderCreatedEvent evt) {
-    // Nếu scheduled, logic khác (lên lịch). Ở đây xử lý immediate push.
     int batchK = 3; // top-k per batch
     shipperPushService.pushToNearestShippersAsync(
         evt.getOrderId(), evt.getPickupLon(), evt.getPickupLat(), batchK);

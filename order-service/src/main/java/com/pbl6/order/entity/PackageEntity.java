@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.springframework.security.core.parameters.P;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -16,6 +15,7 @@ import java.util.UUID;
 @Setter
 @NoArgsConstructor
 public class PackageEntity {
+
   @Id @GeneratedValue private UUID id;
 
   @ManyToOne(fetch = FetchType.LAZY)
@@ -53,6 +53,19 @@ public class PackageEntity {
   @Column(name = "category", nullable = false)
   private PackageCategory category = PackageCategory.DEFAULT;
 
+  // New: package status
+  @Enumerated(EnumType.STRING)
+  @Column(name = "status", length = 50)
+  private PackageStatus status = PackageStatus.WAITING_FOR_PICKUP;
+
+  // New: note / reason / remark for the current status
+  @Column(name = "status_note", columnDefinition = "text")
+  private String statusNote;
+
+  // Optional: ngày giờ cập nhật trạng thái (nên có để audit/hiển thị)
+  @Column(name = "status_updated_at")
+  private LocalDateTime statusUpdatedAt;
+
   @Column(columnDefinition = "text")
   private String description;
 
@@ -61,4 +74,32 @@ public class PackageEntity {
 
   @Column(name = "created_at", nullable = false)
   private LocalDateTime createdAt = LocalDateTime.now();
+
+  @Column(name = "updated_at")
+  private LocalDateTime updatedAt;
+
+  @PrePersist
+  public void prePersist() {
+    createdAt = createdAt == null ? LocalDateTime.now() : createdAt;
+    // ensure statusUpdatedAt exists on create
+    if (statusUpdatedAt == null) {
+      statusUpdatedAt = LocalDateTime.now();
+    }
+  }
+
+  @PreUpdate
+  public void preUpdate() {
+    updatedAt = LocalDateTime.now();
+  }
+
+  /**
+   * Helper: update status + note atomically in entity. Service layer should call this and then save
+   * the entity.
+   */
+  public void updateStatus(PackageStatus newStatus, String note) {
+    if (newStatus == null) return;
+    this.status = newStatus;
+    this.statusNote = note;
+    this.statusUpdatedAt = LocalDateTime.now();
+  }
 }

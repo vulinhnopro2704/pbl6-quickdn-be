@@ -3,7 +3,9 @@ package com.pbl6.order.service;
 import com.pbl6.order.dto.*;
 import com.pbl6.order.entity.*;
 import com.pbl6.order.event.OrderCreatedEvent;
+import com.pbl6.order.event.OrderStatusChangedEvent;
 import com.pbl6.order.exception.AppException;
+import com.pbl6.order.event.OrderAssignedEvent;
 import com.pbl6.order.mapper.OrderMapper;
 import com.pbl6.order.repository.*;
 import com.pbl6.order.spec.OrderSpecifications;
@@ -17,14 +19,17 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.*;
 import java.time.format.DateTimeParseException;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
 
-import static com.pbl6.order.constant.RedisKeyConstants.ORDER_ASSIGNEE_KEY_PATTERN;
+import static com.pbl6.order.constant.RedisKeyConstants.*;
 
 @Service
 @RequiredArgsConstructor
@@ -39,6 +44,9 @@ public class OrderService {
   private final SizeConfigRepository sizeConfigRepo;
   private final ApplicationEventPublisher publisher;
   private final RedisTemplate<String, String> redisTemplate;
+  private final FirebaseMessagingService firebaseMessagingService;
+  private final ExecutorService pushExecutor;
+  private final PackageStatusHistoryRepository packageStatusHistoryRepo;
 
   @Transactional
   public CreateOrderResponse createOrder(CreateOrderRequest req) {
@@ -198,8 +206,8 @@ public class OrderService {
     addr.setName(addrDto.name());
     addr.setPhone(addrDto.phone());
     addr.setNote(addrDto.note());
-    //    addr.setWardCode(addrDto.wardCode());
-    //    addr.setDistrictCode(addrDto.districtCode());
+    if (addrDto.wardCode() != null) addr.setWardCode(addrDto.wardCode());
+    if (addrDto.districtCode() != null) addr.setDistrictCode(addrDto.districtCode());
 
     // Entity dùng BigDecimal cho latitude/longitude => convert an toàn (null check)
     if (addrDto.latitude() != null) {
@@ -407,11 +415,7 @@ public class OrderService {
 
     // 1) reassign-request by driver/admin: clear shipper if REASSIGNING_DRIVER
     if (to == OrderStatus.REASSIGNING_DRIVER) {
-      // if admin sets REASSIGNING_DRIVER and also provides newShipperId later, admin can reassign
-      // too.
       order.setShipperId(null);
-      // finding new driver in another thread/process is out of scope here
-
     }
 
     // 2) change shipper only allowed for admin via newShipperId
@@ -443,10 +447,41 @@ public class OrderService {
     hist.setCreatedAt(LocalDateTime.now());
     historyRepo.save(hist);
 
-    // ---------- Optional: publish domain event ----------
-    // eventPublisher.publish(new OrderStatusChangedEvent(order.getId(), from, to, currentUserId));
+    // ---------- Prepare notifications (do NOT send inside transaction) ----------
+    // We'll collect what to send and perform send after commit via TransactionSynchronization
+    final UUID finalOldShipper = oldShipper;
+    final UUID finalNewShipper = order.getShipperId();
+    final OrderStatus finalFrom = from;
+    final OrderStatus finalTo = to;
+    final UUID creatorId = order.getCreatorId();
+    final UUID assignedShipper = order.getShipperId();
+    final UUID orderIdForNotify = order.getId();
+
+    // Build user message and driver message content depending on target status
+    // We'll prepare simple title/body and data map for FCM
+
+    NotifyPayload userPayload = null;
+    NotifyPayload driverPayload = null;
+
+    publisher.publishEvent(
+        new OrderStatusChangedEvent(
+            orderId, creatorId, finalOldShipper, finalNewShipper, finalFrom, finalTo));
 
     return OrderMapper.toDetail(order);
+  }
+
+  // --- Decide notifications for user ---
+  // helper nhỏ để build map data (status=title, message=body)
+  private Map<String, String> buildDataMap(
+      String type, UUID orderId, String title, String body, String driverId) {
+    Map<String, String> data = new HashMap<>();
+    data.put("type", type);
+    data.put("orderId", orderId.toString());
+    if (driverId != null) data.put("driverId", driverId);
+    // thêm theo yêu cầu: status = title, message = body
+    data.put("status", title);
+    data.put("message", body);
+    return data;
   }
 
   public List<OrderStatusHistoryResponse> getOrderHistory(
@@ -676,13 +711,141 @@ public class OrderService {
   public OrderDetailResponse assignDriverToOrder(UUID driverId, UUID orderId) {
     OrderEntity order =
         orderRepo.findById(orderId).orElseThrow(() -> AppException.badRequest("Order not found"));
+
     if (order.getShipperId() != null) {
       throw AppException.badRequest("Order already has a driver assigned");
     }
+    order.setStatus(OrderStatus.DRIVER_ASSIGNED);
     order.setShipperId(driverId);
-    String assigneeKey = String.format(ORDER_ASSIGNEE_KEY_PATTERN, orderId);
-    redisTemplate.opsForValue().set(assigneeKey, driverId.toString());
     orderRepo.save(order);
+
+    // 3) Prepare notification payload (do not send inside transaction)
+    final UUID creatorId = order.getCreatorId();
+    publisher.publishEvent(new OrderAssignedEvent(orderId, creatorId));
+
+    // 5) Return immediately (notification happens after commit asynchronously)
     return OrderMapper.toDetail(order);
+  }
+
+  /**
+   * State transition map: allowed next statuses from a current status. Tinh gọn/khởi tạo theo logic
+   * bạn muốn; bạn có thể mở rộng.
+   */
+  private static final Map<PackageStatus, Set<PackageStatus>> TRANSITIONS;
+
+  static {
+    Map<PackageStatus, Set<PackageStatus>> m = new EnumMap<>(PackageStatus.class);
+
+    // from WAITING_FOR_PICKUP
+    m.put(
+        PackageStatus.WAITING_FOR_PICKUP,
+        Set.of(
+            PackageStatus.PICKED_UP,
+            PackageStatus.PICKUP_ATTEMPT_FAILED,
+            PackageStatus.PICKUP_FAILED,
+            PackageStatus.CANCELLED));
+
+    m.put(
+        PackageStatus.PICKED_UP,
+        Set.of(
+            PackageStatus.WAITING_FOR_DELIVERY,
+            PackageStatus.DELIVERY_IN_PROGRESS,
+            PackageStatus.RETURNING,
+            PackageStatus.CANCELLED));
+
+    m.put(
+        PackageStatus.WAITING_FOR_DELIVERY,
+        Set.of(
+            PackageStatus.DELIVERY_IN_PROGRESS,
+            PackageStatus.DELIVERY_ATTEMPT_FAILED,
+            PackageStatus.DELIVERY_FAILED,
+            PackageStatus.CANCELLED));
+
+    m.put(
+        PackageStatus.DELIVERY_IN_PROGRESS,
+        Set.of(
+            PackageStatus.DELIVERED,
+            PackageStatus.DELIVERY_ATTEMPT_FAILED,
+            PackageStatus.DELIVERY_FAILED,
+            PackageStatus.RETURNING,
+            PackageStatus.CANCELLED));
+
+    m.put(
+        PackageStatus.DELIVERY_ATTEMPT_FAILED,
+        Set.of(
+            PackageStatus.DELIVERY_IN_PROGRESS,
+            PackageStatus.DELIVERY_FAILED,
+            PackageStatus.RETURNING,
+            PackageStatus.CANCELLED));
+
+    m.put(PackageStatus.DELIVERY_FAILED, Set.of(PackageStatus.RETURNING, PackageStatus.CANCELLED));
+
+    m.put(PackageStatus.DELIVERED, Set.of()); // terminal
+
+    m.put(PackageStatus.RETURNING, Set.of(PackageStatus.RETURNED, PackageStatus.CANCELLED));
+
+    m.put(PackageStatus.RETURNED, Set.of()); // terminal
+
+    m.put(
+        PackageStatus.PICKUP_ATTEMPT_FAILED,
+        Set.of(PackageStatus.PICKUP_FAILED, PackageStatus.CANCELLED));
+
+    m.put(PackageStatus.PICKUP_FAILED, Set.of(PackageStatus.RETURNING, PackageStatus.CANCELLED));
+
+    m.put(PackageStatus.CANCELLED, Set.of()); // terminal
+
+    TRANSITIONS = Collections.unmodifiableMap(m);
+  }
+
+  private boolean isTerminal(PackageStatus status) {
+    return TRANSITIONS.getOrDefault(status, Set.of()).isEmpty();
+  }
+
+  private void validateTransition(PackageStatus from, PackageStatus to) {
+    if (from == null) {
+      // new package? but in our case package always exists
+      return;
+    }
+    if (from == to) return; // no-op allowed
+    Set<PackageStatus> allowed = TRANSITIONS.get(from);
+    if (allowed == null) {
+      throw new IllegalStateException("No transitions defined for status: " + from);
+    }
+    if (!allowed.contains(to)) {
+      throw new IllegalArgumentException("Invalid status transition: " + from + " -> " + to);
+    }
+  }
+
+  @Transactional
+  public OrderDetailResponse.PackageItemResponse updatePackageStatus(
+      UUID packageId, PackageStatus newStatus, String note, UUID driverId) {
+    PackageEntity pack =
+        packageRepo
+            .findById(packageId)
+            .orElseThrow(() -> AppException.notFound("Package not found: " + packageId));
+
+    UUID shipperId =
+        orderRepo
+            .findShipperIdByPackageId(packageId)
+            .orElseThrow(() -> AppException.notFound("Order not found for package: " + packageId));
+    if (!Objects.equals(shipperId, driverId)) {
+      throw AppException.forbidden("Driver not assigned to this order");
+    }
+
+    PackageStatus oldStatus = pack.getStatus();
+
+    // Validate transition
+    validateTransition(oldStatus, newStatus);
+
+    // Update entity
+    pack.updateStatus(newStatus, note);
+    // Save package
+    PackageEntity saved = packageRepo.save(pack);
+
+    // Persist history
+    PackageStatusHistory history =
+        new PackageStatusHistory(saved.getId(), oldStatus, newStatus, note, driverId);
+    packageStatusHistoryRepo.save(history);
+    return OrderMapper.toPackageItem(saved);
   }
 }
