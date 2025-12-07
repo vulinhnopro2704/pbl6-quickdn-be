@@ -29,8 +29,8 @@ public record AddressDto(
         @Pattern(regexp = "^0\\d{9,10}$", message = "Invalid phone number format")
         @NotBlank
         String phone,
-//    @Schema(description = "Ward code", example = "123") @NotNull Integer wardCode,
-//    @Schema(description = "District code") @NotNull Integer districtCode,
+    @Schema(description = "Ward code", example = "123") @NotNull Integer wardCode,
+    @Schema(description = "District code") @NotNull Integer districtCode,
     @Schema(description = "Additional notes for the address", example = "Near school")
         @Size(max = 500)
         String note,

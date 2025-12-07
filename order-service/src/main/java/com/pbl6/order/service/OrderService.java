@@ -3,7 +3,9 @@ package com.pbl6.order.service;
 import com.pbl6.order.dto.*;
 import com.pbl6.order.entity.*;
 import com.pbl6.order.event.OrderCreatedEvent;
+import com.pbl6.order.event.OrderStatusChangedEvent;
 import com.pbl6.order.exception.AppException;
+import com.pbl6.order.event.OrderAssignedEvent;
 import com.pbl6.order.mapper.OrderMapper;
 import com.pbl6.order.repository.*;
 import com.pbl6.order.spec.OrderSpecifications;
@@ -26,7 +28,6 @@ import java.time.*;
 import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.RejectedExecutionException;
 
 import static com.pbl6.order.constant.RedisKeyConstants.*;
 
@@ -45,6 +46,7 @@ public class OrderService {
   private final RedisTemplate<String, String> redisTemplate;
   private final FirebaseMessagingService firebaseMessagingService;
   private final ExecutorService pushExecutor;
+  private final PackageStatusHistoryRepository packageStatusHistoryRepo;
 
   @Transactional
   public CreateOrderResponse createOrder(CreateOrderRequest req) {
@@ -204,8 +206,8 @@ public class OrderService {
     addr.setName(addrDto.name());
     addr.setPhone(addrDto.phone());
     addr.setNote(addrDto.note());
-    //    addr.setWardCode(addrDto.wardCode());
-    //    addr.setDistrictCode(addrDto.districtCode());
+    if (addrDto.wardCode() != null) addr.setWardCode(addrDto.wardCode());
+    if (addrDto.districtCode() != null) addr.setDistrictCode(addrDto.districtCode());
 
     // Entity dùng BigDecimal cho latitude/longitude => convert an toàn (null check)
     if (addrDto.latitude() != null) {
@@ -445,245 +447,25 @@ public class OrderService {
     hist.setCreatedAt(LocalDateTime.now());
     historyRepo.save(hist);
 
-//    // ---------- Prepare notifications (do NOT send inside transaction) ----------
-//    // We'll collect what to send and perform send after commit via TransactionSynchronization
-//    final UUID finalOldShipper = oldShipper;
-//    final UUID finalNewShipper = order.getShipperId();
-//    final OrderStatus finalFrom = from;
-//    final OrderStatus finalTo = to;
-//    final UUID creatorId = order.getCreatorId();
-//    final UUID assignedShipper = order.getShipperId();
-//    final UUID orderIdForNotify = order.getId();
-//
-//    // Build user message and driver message content depending on target status
-//    // We'll prepare simple title/body and data map for FCM
-//
-//    NotifyPayload userPayload = null;
-//    NotifyPayload driverPayload = null;
-//
-//    // --- Decide notifications for user ---
-//    switch (finalTo) {
-//      case REASSIGNING_DRIVER -> {
-//        String title = "🔄 Đang tìm tài xế mới";
-//        String body = "Đơn hàng của bạn đang được tìm tài xế mới, vui lòng chờ.";
-//        userPayload =
-//            new NotifyPayload(
-//                title,
-//                body,
-//                buildDataMap("ORDER_REASSIGNING", orderIdForNotify, title, body, null));
-//      }
-//      case DRIVER_ASSIGNED -> {
-//        if (assignedShipper != null) {
-//          String title = "✅ Đã có tài xế nhận đơn";
-//          String body = "Tài xế đang được liên hệ để tới lấy hàng.";
-//          userPayload =
-//              new NotifyPayload(
-//                  title,
-//                  body,
-//                  buildDataMap(
-//                      "DRIVER_ASSIGNED",
-//                      orderIdForNotify,
-//                      title,
-//                      body,
-//                      assignedShipper.toString()));
-//        }
-//      }
-//      case DRIVER_EN_ROUTE_PICKUP -> {
-//        String title = "🚗 Tài xế đang tới điểm lấy";
-//        String body = "Tài xế đang trên đường tới điểm lấy hàng.";
-//        userPayload =
-//            new NotifyPayload(
-//                title,
-//                body,
-//                buildDataMap("DRIVER_EN_ROUTE_PICKUP", orderIdForNotify, title, body, null));
-//      }
-//      case ARRIVED_PICKUP -> {
-//        String title = "📍 Tài xế đã tới điểm lấy";
-//        String body = "Tài xế đã tới địa điểm lấy hàng.";
-//        userPayload =
-//            new NotifyPayload(
-//                title, body, buildDataMap("ARRIVED_PICKUP", orderIdForNotify, title, body, null));
-//      }
-//      case PACKAGE_PICKED -> {
-//        String title = "📦 Đã lấy hàng";
-//        String body = "Tài xế đã lấy hàng và chuẩn bị giao.";
-//        userPayload =
-//            new NotifyPayload(
-//                title, body, buildDataMap("PICKUP_SUCCESS", orderIdForNotify, title, body, null));
-//      }
-//      case EN_ROUTE_DELIVERY -> {
-//        String title = "🚚 Đang giao hàng";
-//        String body = "Tài xế đang di chuyển đến địa chỉ giao hàng.";
-//        userPayload =
-//            new NotifyPayload(
-//                title,
-//                body,
-//                buildDataMap("EN_ROUTE_DELIVERY", orderIdForNotify, title, body, null));
-//      }
-//      case ARRIVED_DELIVERY -> {
-//        String title = "📍 Đã đến nơi giao hàng";
-//        String body = "Tài xế đã tới địa điểm giao hàng.";
-//        userPayload =
-//            new NotifyPayload(
-//                title, body, buildDataMap("ARRIVED_DELIVERY", orderIdForNotify, title, body, null));
-//      }
-//      case DELIVERED -> {
-//        String title = "🎉 Giao hàng thành công";
-//        String body = "Đơn hàng đã được giao thành công. Cảm ơn bạn!";
-//        userPayload =
-//            new NotifyPayload(
-//                title, body, buildDataMap("DELIVERED", orderIdForNotify, title, body, null));
-//      }
-//      case CANCELLED_BY_DRIVER, CANCELLED_BY_SENDER, CANCELLED_NO_DRIVER, ORDER_CANCELLED -> {
-//        String title = "❌ Đơn hàng bị hủy";
-//        String body = "Đơn hàng của bạn đã bị hủy. Vui lòng kiểm tra chi tiết.";
-//        userPayload =
-//            new NotifyPayload(
-//                title, body, buildDataMap("ORDER_CANCELLED", orderIdForNotify, title, body, null));
-//      }
-//      default -> {
-//        // other transitions: no notification to user by default
-//      }
-//    }
-//
-//    // --- Decide notifications for driver (assigned shipper only) ---
-//    if (assignedShipper != null) {
-//      String assignedShipperId = assignedShipper.toString();
-//      switch (finalTo) {
-//        case DRIVER_ASSIGNED -> {
-//          String title = "📦 Bạn được giao một đơn hàng";
-//          String body = "Bạn vừa được gán đơn, vui lòng vào app xem và xác nhận.";
-//          driverPayload =
-//              new NotifyPayload(
-//                  title,
-//                  body,
-//                  buildDataMap("ASSIGNED_ORDER", orderIdForNotify, title, body, assignedShipperId));
-//        }
-//        case DRIVER_EN_ROUTE_PICKUP -> {
-//          String title = "🚗 Đến điểm lấy";
-//          String body = "Vui lòng di chuyển tới điểm lấy hàng.";
-//          driverPayload =
-//              new NotifyPayload(
-//                  title,
-//                  body,
-//                  buildDataMap(
-//                      "EN_ROUTE_PICKUP", orderIdForNotify, title, body, assignedShipperId));
-//        }
-//        case ARRIVED_PICKUP -> {
-//          String title = "📍 Đã đến điểm lấy";
-//          String body = "Bạn đã đến điểm lấy. Vui lòng liên hệ người gửi nếu cần.";
-//          driverPayload =
-//              new NotifyPayload(
-//                  title,
-//                  body,
-//                  buildDataMap("ARRIVED_PICKUP", orderIdForNotify, title, body, assignedShipperId));
-//        }
-//        case PACKAGE_PICKED -> {
-//          String title = "📦 Đã lấy hàng";
-//          String body = "Bạn đã xác nhận lấy hàng. Hãy chuyển sang giao hàng.";
-//          driverPayload =
-//              new NotifyPayload(
-//                  title,
-//                  body,
-//                  buildDataMap(
-//                      "PICKUP_CONFIRMED", orderIdForNotify, title, body, assignedShipperId));
-//        }
-//        case EN_ROUTE_DELIVERY -> {
-//          String title = "🚚 Đang giao";
-//          String body = "Vui lòng giao hàng tới địa chỉ người nhận.";
-//          driverPayload =
-//              new NotifyPayload(
-//                  title,
-//                  body,
-//                  buildDataMap(
-//                      "EN_ROUTE_DELIVERY", orderIdForNotify, title, body, assignedShipperId));
-//        }
-//        case DELIVERED -> {
-//          String title = "✅ Giao hàng xong";
-//          String body = "Bạn đã hoàn thành giao hàng. Cảm ơn!";
-//          driverPayload =
-//              new NotifyPayload(
-//                  title,
-//                  body,
-//                  buildDataMap("DELIVERED", orderIdForNotify, title, body, assignedShipperId));
-//        }
-//        case REASSIGNING_DRIVER -> {
-//          String title = "🔄 Đang reassign";
-//          String body = "Đơn hàng này đang được tìm tài xế mới. Vui lòng chờ.";
-//          driverPayload =
-//              new NotifyPayload(
-//                  title,
-//                  body,
-//                  buildDataMap("REASSIGNING", orderIdForNotify, title, body, assignedShipperId));
-//        }
-//        case CANCELLED_BY_DRIVER, CANCELLED_BY_SENDER, ORDER_CANCELLED -> {
-//          String title = "❌ Đơn hàng bị hủy";
-//          String body = "Đơn hàng đã bị hủy. Không cần thực hiện nhiệm vụ này nữa.";
-//          driverPayload =
-//              new NotifyPayload(
-//                  title,
-//                  body,
-//                  buildDataMap(
-//                      "ORDER_CANCELLED", orderIdForNotify, title, body, assignedShipperId));
-//        }
-//        default -> {
-//          // other transitions: no notification to driver by default
-//        }
-//      }
-//    }
-//
-//    // ---------- Register afterCommit to actually send notifications ----------
-//    NotifyPayload finalUserPayload = userPayload;
-//    NotifyPayload finalDriverPayload = driverPayload;
-//    TransactionSynchronizationManager.registerSynchronization(
-//        new TransactionSynchronization() {
-//          @Override
-//          public void afterCommit() {
-//            // 1) notify user if needed
-//            if (finalUserPayload != null && creatorId != null) {
-//              try {
-//                String userToken =
-//                    redisTemplate.opsForValue().get(String.format(USER_FCM_TOKEN, creatorId));
-//                if (userToken != null && !userToken.isEmpty()) {
-//                  firebaseMessagingService.sendNotificationWithData(
-//                      userToken,
-//                      finalUserPayload.title,
-//                      finalUserPayload.body,
-//                      finalUserPayload.data);
-//                }
-//              } catch (Exception e) {
-//                // log error but do not throw
-//              }
-//            }
-//
-//            // 2) notify assigned driver if needed
-//            if (finalDriverPayload != null && assignedShipper != null) {
-//              try {
-//                String driverToken =
-//                    redisTemplate
-//                        .opsForValue()
-//                        .get(String.format(DRIVER_FCM_TOKEN, assignedShipper));
-//                if (driverToken != null && !driverToken.isEmpty()) {
-//                  firebaseMessagingService.sendNotificationWithData(
-//                      driverToken,
-//                      finalDriverPayload.title,
-//                      finalDriverPayload.body,
-//                      finalDriverPayload.data);
-//                }
-//              } catch (Exception e) {
-//                // log error
-//              }
-//            }
-//
-//            // 3) If status is DRIVER_ASSIGNED but assignedShipper == null (system assigned via
-//            // push),
-//            // you might want to trigger push-service to start broadcasting to top-k drivers.
-//            // That logic is outside this method (handled by OrderCreatedEvent or Reassign flow).
-//          }
-//        });
-//
-//    // ---------- Optional: publish domain event (non-blocking) ----------
-//    // eventPublisher.publish(new OrderStatusChangedEvent(order.getId(), from, to, currentUserId));
+    // ---------- Prepare notifications (do NOT send inside transaction) ----------
+    // We'll collect what to send and perform send after commit via TransactionSynchronization
+    final UUID finalOldShipper = oldShipper;
+    final UUID finalNewShipper = order.getShipperId();
+    final OrderStatus finalFrom = from;
+    final OrderStatus finalTo = to;
+    final UUID creatorId = order.getCreatorId();
+    final UUID assignedShipper = order.getShipperId();
+    final UUID orderIdForNotify = order.getId();
+
+    // Build user message and driver message content depending on target status
+    // We'll prepare simple title/body and data map for FCM
+
+    NotifyPayload userPayload = null;
+    NotifyPayload driverPayload = null;
+
+    publisher.publishEvent(
+        new OrderStatusChangedEvent(
+            orderId, creatorId, finalOldShipper, finalNewShipper, finalFrom, finalTo));
 
     return OrderMapper.toDetail(order);
   }
@@ -933,9 +715,137 @@ public class OrderService {
     if (order.getShipperId() != null) {
       throw AppException.badRequest("Order already has a driver assigned");
     }
-    order.setShipperId(driverId);
     order.setStatus(OrderStatus.DRIVER_ASSIGNED);
+    order.setShipperId(driverId);
     orderRepo.save(order);
+
+    // 3) Prepare notification payload (do not send inside transaction)
+    final UUID creatorId = order.getCreatorId();
+    publisher.publishEvent(new OrderAssignedEvent(orderId, creatorId));
+
+    // 5) Return immediately (notification happens after commit asynchronously)
     return OrderMapper.toDetail(order);
+  }
+
+  /**
+   * State transition map: allowed next statuses from a current status. Tinh gọn/khởi tạo theo logic
+   * bạn muốn; bạn có thể mở rộng.
+   */
+  private static final Map<PackageStatus, Set<PackageStatus>> TRANSITIONS;
+
+  static {
+    Map<PackageStatus, Set<PackageStatus>> m = new EnumMap<>(PackageStatus.class);
+
+    // from WAITING_FOR_PICKUP
+    m.put(
+        PackageStatus.WAITING_FOR_PICKUP,
+        Set.of(
+            PackageStatus.PICKED_UP,
+            PackageStatus.PICKUP_ATTEMPT_FAILED,
+            PackageStatus.PICKUP_FAILED,
+            PackageStatus.CANCELLED));
+
+    m.put(
+        PackageStatus.PICKED_UP,
+        Set.of(
+            PackageStatus.WAITING_FOR_DELIVERY,
+            PackageStatus.DELIVERY_IN_PROGRESS,
+            PackageStatus.RETURNING,
+            PackageStatus.CANCELLED));
+
+    m.put(
+        PackageStatus.WAITING_FOR_DELIVERY,
+        Set.of(
+            PackageStatus.DELIVERY_IN_PROGRESS,
+            PackageStatus.DELIVERY_ATTEMPT_FAILED,
+            PackageStatus.DELIVERY_FAILED,
+            PackageStatus.CANCELLED));
+
+    m.put(
+        PackageStatus.DELIVERY_IN_PROGRESS,
+        Set.of(
+            PackageStatus.DELIVERED,
+            PackageStatus.DELIVERY_ATTEMPT_FAILED,
+            PackageStatus.DELIVERY_FAILED,
+            PackageStatus.RETURNING,
+            PackageStatus.CANCELLED));
+
+    m.put(
+        PackageStatus.DELIVERY_ATTEMPT_FAILED,
+        Set.of(
+            PackageStatus.DELIVERY_IN_PROGRESS,
+            PackageStatus.DELIVERY_FAILED,
+            PackageStatus.RETURNING,
+            PackageStatus.CANCELLED));
+
+    m.put(PackageStatus.DELIVERY_FAILED, Set.of(PackageStatus.RETURNING, PackageStatus.CANCELLED));
+
+    m.put(PackageStatus.DELIVERED, Set.of()); // terminal
+
+    m.put(PackageStatus.RETURNING, Set.of(PackageStatus.RETURNED, PackageStatus.CANCELLED));
+
+    m.put(PackageStatus.RETURNED, Set.of()); // terminal
+
+    m.put(
+        PackageStatus.PICKUP_ATTEMPT_FAILED,
+        Set.of(PackageStatus.PICKUP_FAILED, PackageStatus.CANCELLED));
+
+    m.put(PackageStatus.PICKUP_FAILED, Set.of(PackageStatus.RETURNING, PackageStatus.CANCELLED));
+
+    m.put(PackageStatus.CANCELLED, Set.of()); // terminal
+
+    TRANSITIONS = Collections.unmodifiableMap(m);
+  }
+
+  private boolean isTerminal(PackageStatus status) {
+    return TRANSITIONS.getOrDefault(status, Set.of()).isEmpty();
+  }
+
+  private void validateTransition(PackageStatus from, PackageStatus to) {
+    if (from == null) {
+      // new package? but in our case package always exists
+      return;
+    }
+    if (from == to) return; // no-op allowed
+    Set<PackageStatus> allowed = TRANSITIONS.get(from);
+    if (allowed == null) {
+      throw new IllegalStateException("No transitions defined for status: " + from);
+    }
+    if (!allowed.contains(to)) {
+      throw new IllegalArgumentException("Invalid status transition: " + from + " -> " + to);
+    }
+  }
+
+  @Transactional
+  public OrderDetailResponse.PackageItemResponse updatePackageStatus(
+      UUID packageId, PackageStatus newStatus, String note, UUID driverId) {
+    PackageEntity pack =
+        packageRepo
+            .findById(packageId)
+            .orElseThrow(() -> AppException.notFound("Package not found: " + packageId));
+
+    UUID shipperId =
+        orderRepo
+            .findShipperIdByPackageId(packageId)
+            .orElseThrow(() -> AppException.notFound("Order not found for package: " + packageId));
+    if (!Objects.equals(shipperId, driverId)) {
+      throw AppException.forbidden("Driver not assigned to this order");
+    }
+
+    PackageStatus oldStatus = pack.getStatus();
+
+    // Validate transition
+    validateTransition(oldStatus, newStatus);
+
+    // Update entity
+    pack.updateStatus(newStatus, note);
+    // Save package
+    PackageEntity saved = packageRepo.save(pack);
+
+    // Persist history
+    PackageStatusHistory history =
+        new PackageStatusHistory(saved.getId(), oldStatus, newStatus, note, driverId);
+    packageStatusHistoryRepo.save(history);
+    return OrderMapper.toPackageItem(saved);
   }
 }
