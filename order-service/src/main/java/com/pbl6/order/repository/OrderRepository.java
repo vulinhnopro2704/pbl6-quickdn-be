@@ -20,4 +20,17 @@ public interface OrderRepository
         where p.id = :packageId
     """)
     Optional<UUID> findShipperIdByPackageId(@Param("packageId") UUID packageId);
+    /**
+     * Fetch orders + packages + package.dropoffAddress + order.pickupAddress for a list of ids.
+     * Use distinct to avoid duplicates due to join.
+     */
+    @Query("""
+    select distinct o
+    from OrderEntity o
+      left join fetch o.packages p
+      left join fetch p.dropoffAddress
+      left join fetch o.pickupAddress
+    where o.id in :ids
+  """)
+    List<OrderEntity> findAllByIdInWithPackages(@Param("ids") List<UUID> ids);
 }

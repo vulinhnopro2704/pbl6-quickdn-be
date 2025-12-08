@@ -2,12 +2,14 @@ package com.pbl6.order.mapper;
 
 import com.pbl6.order.dto.*;
 import com.pbl6.order.entity.OrderEntity;
+import com.pbl6.order.entity.OrderPriceRouteEntity;
 import com.pbl6.order.entity.OrderStatusHistory;
 import com.pbl6.order.entity.PackageAddressEntity;
 import com.pbl6.order.entity.PackageEntity;
 
-import java.math.BigDecimal;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 public class OrderMapper {
 
@@ -29,19 +31,21 @@ public class OrderMapper {
         a.getLongitude() != null ? a.getLongitude().doubleValue() : null);
   }
 
-  public static List<PriceAndRouteDto> toPriceAndRoute(OrderEntity o) {
-    return o.getPriceRoutes().stream()
+  public static List<PriceAndRouteDto> toPriceAndRouteList(List<OrderPriceRouteEntity> prs) {
+    if (prs == null || prs.isEmpty()) return List.of();
+    return prs.stream()
+        .filter(Objects::nonNull)
         .map(
             p ->
                 new PriceAndRouteDto(
-                    p.getPrice().doubleValue(),
-                    p.getLatitude().doubleValue(),
-                    p.getLongitude().doubleValue(),
+                    p.getPrice() != null ? p.getPrice().doubleValue() : null,
+                    p.getLatitude() != null ? p.getLatitude().doubleValue() : null,
+                    p.getLongitude() != null ? p.getLongitude().doubleValue() : null,
                     p.getRouteIndex(),
                     p.getPackageIndex(),
-                    p.getDistance(),
-                    p.getEstimatedDuration()))
-        .toList();
+                    p.getDistance() != null ? p.getDistance() : null,
+                    p.getEstimatedDuration() != null ? p.getEstimatedDuration() : null))
+        .collect(Collectors.toList());
   }
 
   public static OrderDetailResponse.PackageItemResponse toPackageItem(PackageEntity p) {
@@ -61,6 +65,10 @@ public class OrderMapper {
         toAddress(p.getDropoffAddress()));
   }
 
+  /**
+   * Default toDetail (uses e.getPriceRoutes()) — safe because service attaches priceRoutes
+   * beforehand.
+   */
   public static OrderDetailResponse toDetail(OrderEntity e) {
     return new OrderDetailResponse(
         e.getId(),
@@ -71,7 +79,7 @@ public class OrderMapper {
         toAddress(e.getPickupAddress()),
         e.getPackages().stream().map(OrderMapper::toPackageItem).toList(),
         e.getShipperId(),
-        toPriceAndRoute(e));
+        toPriceAndRouteList(e.getPriceRoutes()));
   }
 
   public static OrderStatusHistoryResponse toHistory(OrderStatusHistory h) {

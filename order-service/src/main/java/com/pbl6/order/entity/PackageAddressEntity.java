@@ -33,10 +33,10 @@ public class PackageAddressEntity {
   private BigDecimal longitude;
 
   @Column(length = 150)
-  private int wardCode; // phường/xã code
+  private Integer wardCode; // phường/xã code
 
   @Column(length = 150)
-  private int districtCode; // quận/huyện code
+  private Integer districtCode; // quận/huyện code
 
   @Column(name = "note", length = 500)
   private String note;
