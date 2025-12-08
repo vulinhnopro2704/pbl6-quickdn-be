@@ -72,7 +72,7 @@ jwt:
   refresh-exp-ms: ${JWT_REFRESH_EXP_MS}
 
 firebase:
-  service-account-base64: ${FIREBASE_SERVICE_ACCOUNT_BASE64:}
+  service-account-base64: ${FIREBASE_SERVICE_ACCOUNT_BASE64}
 
 gooongmap:
   base-url: ${GOOONGMAP_BASE_URL}

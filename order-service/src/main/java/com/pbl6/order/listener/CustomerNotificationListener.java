@@ -14,13 +14,12 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
+import static com.pbl6.order.constant.RedisKeyConstants.USER_FCM_TOKEN;
+
 @Component
 public class CustomerNotificationListener {
 
   private static final Logger log = LoggerFactory.getLogger(CustomerNotificationListener.class);
-
-  // key pattern (để giống code cũ của bạn)
-  private static final String USER_FCM_TOKEN = "user:%s:fcm"; // sửa theo key actual của bạn
 
   private final RedisTemplate<String, String> redisTemplate;
   private final FirebaseMessagingService firebaseMessagingService;
