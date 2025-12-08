@@ -1,15 +1,24 @@
 import httpx
 import os
-from app.config.settings import FACE_SIMILARITY_THRESHOLD
+from typing import List
 
-async def verify_from_service(server_image: bytes, client_image: bytes) -> float:
-    async with httpx.AsyncClient() as client:
+async def verify_from_service(server_images: List[bytes], client_image: bytes):
+    files = []
+
+    for idx, img_bytes in enumerate(server_images):
+        files.append((
+            "images1",
+            (f"image1_{idx}.jpg", img_bytes, "image/jpeg")
+        ))
+    files.append((
+        "image2",
+        ("image2.jpg", client_image, "image/jpeg")
+    ))
+    timeout = httpx.Timeout(60.0)
+    async with httpx.AsyncClient(timeout=timeout) as client:
         res = await client.post(
-            os.getenv('API_ENDPOINT') + "/verify",
-            files= {
-                "image1": ("image1.jpg", server_image, "image/jpeg"),
-                "image2": ("image2.jpg", client_image, "image/jpeg")
-            }
+            os.getenv("API_ENDPOINT") + "/verify",
+            files=files
         )
-    result = res.json()
-    return result
+
+    return res.json()

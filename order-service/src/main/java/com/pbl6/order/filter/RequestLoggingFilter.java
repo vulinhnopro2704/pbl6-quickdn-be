@@ -4,25 +4,17 @@ import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.ContentCachingRequestWrapper;
 import org.springframework.web.util.ContentCachingResponseWrapper;
 
 import java.io.IOException;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 @Slf4j
 @Component
-@Order(1)
 public class RequestLoggingFilter implements Filter {
 
-  private static final DateTimeFormatter FORMATTER =
-      DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
-  private static final ZoneId VIETNAM_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
   private static final String REQUEST_ID_HEADER = "X-Request-ID";
 
   @Override
@@ -32,16 +24,23 @@ public class RequestLoggingFilter implements Filter {
     HttpServletRequest httpRequest = (HttpServletRequest) request;
     HttpServletResponse httpResponse = (HttpServletResponse) response;
 
+    String uri = httpRequest.getRequestURI();
+    boolean shouldLog = !uri.contains("prometheus") && !uri.contains("grafana") && !uri.contains("swagger") && !uri.contains("actuator");
+
+    if (!shouldLog) {
+      chain.doFilter(request, response);
+      return;
+    }
+
     ContentCachingRequestWrapper requestWrapper = new ContentCachingRequestWrapper(httpRequest);
     ContentCachingResponseWrapper responseWrapper = new ContentCachingResponseWrapper(httpResponse);
 
     String requestId = getOrGenerateRequestId(httpRequest);
-    String vietnamTime = ZonedDateTime.now(VIETNAM_ZONE).format(FORMATTER);
     long startTime = System.currentTimeMillis();
 
     try {
       // Log incoming request
-      logIncomingRequest(requestWrapper, requestId, vietnamTime);
+      logIncomingRequest(requestWrapper, requestId);
 
       // Add request ID to response
       responseWrapper.setHeader(REQUEST_ID_HEADER, requestId);
@@ -68,7 +67,7 @@ public class RequestLoggingFilter implements Filter {
   }
 
   private void logIncomingRequest(
-      HttpServletRequest request, String requestId, String vietnamTime) {
+      HttpServletRequest request, String requestId) {
     String clientIp = getClientIp(request);
     String method = request.getMethod();
     String uri = request.getRequestURI();
@@ -81,7 +80,6 @@ public class RequestLoggingFilter implements Filter {
     log.info("│ [ORDER-SERVICE] REQUEST RECEIVED");
     log.info("├─────────────────────────────────────────────────────────────");
     log.info("│ Request ID     : {}", requestId);
-    log.info("│ Time (VN)      : {}", vietnamTime);
     log.info("│ Origin         : {}", origin);
     log.info("│ Client IP      : {}", clientIp);
     log.info("│ Method         : {}", method);
@@ -95,7 +93,6 @@ public class RequestLoggingFilter implements Filter {
     int status = response.getStatus();
     String method = request.getMethod();
     String uri = request.getRequestURI();
-    String vietnamTime = ZonedDateTime.now(VIETNAM_ZONE).format(FORMATTER);
     String statusEmoji = status < 400 ? "✓" : "✗";
     String logLevel = status < 400 ? "SUCCESS" : (status < 500 ? "CLIENT_ERROR" : "SERVER_ERROR");
 
@@ -104,7 +101,6 @@ public class RequestLoggingFilter implements Filter {
       log.info("│ [ORDER-SERVICE] RESPONSE SENT - {}", logLevel);
       log.info("├─────────────────────────────────────────────────────────────");
       log.info("│ Request ID     : {}", requestId);
-      log.info("│ Time (VN)      : {}", vietnamTime);
       log.info("│ Method         : {}", method);
       log.info("│ Path           : {}", uri);
       log.info("│ Status         : {} {} {}", status, getStatusText(status), statusEmoji);
@@ -115,7 +111,6 @@ public class RequestLoggingFilter implements Filter {
       log.warn("│ [ORDER-SERVICE] RESPONSE SENT - {}", logLevel);
       log.warn("├─────────────────────────────────────────────────────────────");
       log.warn("│ Request ID     : {}", requestId);
-      log.warn("│ Time (VN)      : {}", vietnamTime);
       log.warn("│ Method         : {}", method);
       log.warn("│ Path           : {}", uri);
       log.warn("│ Status         : {} {} {}", status, getStatusText(status), statusEmoji);
@@ -127,13 +122,11 @@ public class RequestLoggingFilter implements Filter {
   private void logError(HttpServletRequest request, String requestId, long duration, Exception e) {
     String method = request.getMethod();
     String uri = request.getRequestURI();
-    String vietnamTime = ZonedDateTime.now(VIETNAM_ZONE).format(FORMATTER);
 
     log.error("┌─────────────────────────────────────────────────────────────");
     log.error("│ [ORDER-SERVICE] REQUEST FAILED");
     log.error("├─────────────────────────────────────────────────────────────");
     log.error("│ Request ID     : {}", requestId);
-    log.error("│ Time (VN)      : {}", vietnamTime);
     log.error("│ Method         : {}", method);
     log.error("│ Path           : {}", uri);
     log.error("│ Duration       : {} ms", duration);

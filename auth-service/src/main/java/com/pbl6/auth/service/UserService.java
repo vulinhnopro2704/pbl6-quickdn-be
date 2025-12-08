@@ -37,9 +37,15 @@ public class UserService {
   private final RedisTemplate<String, String> redisTemplate;
 
   public UserResponse getById(UUID userId) {
-    User user =
-        userRepo.findById(userId).orElseThrow(() -> AppException.notFound("User not found"));
-    return toResponse(user);
+    try {
+      User user =
+          userRepo.findById(userId).orElseThrow(() -> AppException.notFound("User not found"));
+      return toResponse(user);
+    } catch (IllegalArgumentException ex) {
+      ex.printStackTrace();
+      System.err.println(ex.getMessage());
+      throw AppException.badRequest("Đã có lỗi xảy ra: " + ex.getMessage());
+    }
   }
 
   @Transactional

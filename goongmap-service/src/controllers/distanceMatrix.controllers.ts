@@ -6,10 +6,10 @@ import { Request, Response } from 'express';
 
 const getDistanceMatrix = async (req: Request, res: Response) => {
   try {
-    const { origins, destination, vehicle } = req.query;
+    const { origins, destinations, vehicle } = req.query;
     const result = await goongService.getDistanceMatrix({
       origins: origins as string,
-      destinations: destination as string,
+      destinations: destinations as string,
       vehicle: (vehicle || 'bike') as Vehicle,
     });
     return res.status(200).json(result);
