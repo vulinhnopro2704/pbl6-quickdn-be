@@ -14,6 +14,7 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -28,6 +29,8 @@ import java.time.*;
 import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.pbl6.order.constant.RedisKeyConstants.*;
 
@@ -47,6 +50,7 @@ public class OrderService {
   private final FirebaseMessagingService firebaseMessagingService;
   private final ExecutorService pushExecutor;
   private final PackageStatusHistoryRepository packageStatusHistoryRepo;
+  private final OrderPriceRouteRepository priceRouteRepo;
 
   @Transactional
   public CreateOrderResponse createOrder(CreateOrderRequest req) {
@@ -226,73 +230,6 @@ public class OrderService {
     return addr;
   }
 
-  public Page<OrderDetailResponse> getOrdersByRoleSelector(
-      UUID currentUserId,
-      Set<String> actualRoles,
-      String roleToUse, // e.g. "USER", "DRIVER", "ADMIN", or null (auto)
-      UUID filterUserId, // only meaningful if roleToUse == ADMIN
-      String q,
-      String status,
-      String paymentMethod,
-      LocalDate fromDate,
-      LocalDate toDate,
-      Pageable pageable) {
-    // If roleToUse is explicitly admin, ensure actualRoles contains it (controller checked already)
-    if ("ADMIN".equals(roleToUse)) {
-      Specification<OrderEntity> spec = (root, query, cb) -> null;
-      if (filterUserId != null) spec = spec.and(OrderSpecifications.belongsToUser(filterUserId));
-      // add common filters
-      spec = applyCommonFilters(spec, q, status, paymentMethod, fromDate, toDate);
-      return orderRepo.findAll(spec, pageable).map(OrderMapper::toDetail);
-    }
-
-    // If roleToUse is explicitly DRIVER
-    if ("DRIVER".equals(roleToUse)) {
-      if (currentUserId == null) throw AppException.badRequest("Không xác định driverId từ token");
-      Specification<OrderEntity> spec = OrderSpecifications.hasShipperId(currentUserId);
-      spec = applyCommonFilters(spec, q, status, paymentMethod, fromDate, toDate);
-      return orderRepo.findAll(spec, pageable).map(OrderMapper::toDetail);
-    }
-
-    // If roleToUse is explicitly USER
-    if ("USER".equals(roleToUse)) {
-      if (currentUserId == null) throw AppException.badRequest("Không xác định userId từ token");
-      Specification<OrderEntity> spec = OrderSpecifications.belongsToUser(currentUserId);
-      spec = applyCommonFilters(spec, q, status, paymentMethod, fromDate, toDate);
-      return orderRepo.findAll(spec, pageable).map(OrderMapper::toDetail);
-    }
-
-    // roleToUse == null => auto / union behavior based on actualRoles
-    // Build OR predicates for roles the user actually has (e.g. USER and/or DRIVER)
-    Specification<OrderEntity> spec = getOrderEntitySpecification(currentUserId, actualRoles);
-    spec = applyCommonFilters(spec, q, status, paymentMethod, fromDate, toDate);
-    return orderRepo.findAll(spec, pageable).map(OrderMapper::toDetail);
-  }
-
-  private static Specification<OrderEntity> getOrderEntitySpecification(
-      UUID currentUserId, Set<String> actualRoles) {
-    Specification<OrderEntity> roleSpec =
-        (root, query, cb) -> {
-          Predicate or = cb.disjunction();
-          if (actualRoles.contains("USER")) {
-            if (currentUserId == null)
-              throw AppException.badRequest("Không xác định userId từ token");
-            or = cb.or(or, cb.equal(root.get("creatorId"), currentUserId));
-          }
-          if (actualRoles.contains("DRIVER")) {
-            if (currentUserId == null)
-              throw AppException.badRequest("Không xác định driverId từ token");
-            or = cb.or(or, cb.equal(root.get("shipperId"), currentUserId));
-          }
-          // if no role matched -> deny
-          return or;
-        };
-
-    Specification<OrderEntity> spec = roleSpec;
-    return spec;
-  }
-
-  // helper to AND common filters
   private Specification<OrderEntity> applyCommonFilters(
       Specification<OrderEntity> base,
       String q,
@@ -309,6 +246,140 @@ public class OrderService {
     if (toDate != null) spec = spec.and(OrderSpecifications.toDate(toDate));
     return spec;
   }
+
+  private static Specification<OrderEntity> getOrderEntitySpecification(
+      UUID currentUserId, Set<String> actualRoles) {
+    return (root, query, cb) -> {
+      if (actualRoles == null || actualRoles.isEmpty()) {
+        return cb.disjunction();
+      }
+      if (actualRoles.contains("ADMIN")) {
+        return null;
+      }
+      Predicate or = cb.disjunction();
+      if (actualRoles.contains("USER")) {
+        if (currentUserId == null) throw AppException.badRequest("Không xác định userId từ token");
+        or = cb.or(or, cb.equal(root.get("creatorId"), currentUserId));
+      }
+      if (actualRoles.contains("DRIVER")) {
+        if (currentUserId == null)
+          throw AppException.badRequest("Không xác định driverId từ token");
+        or = cb.or(or, cb.equal(root.get("shipperId"), currentUserId));
+      }
+      return or;
+    };
+  }
+
+  /**
+   * 2-step fetch to avoid N+1: 1) findAll(spec, pageable) => page (count + select) 2)
+   * findAllByIdInWithPackages(ids) => one query fetching packages + addresses 3)
+   * findByOrderIds(ids) => one query fetching all priceRoutes
+   *
+   * <p>returns Page<OrderDetailResponse>
+   */
+  @Transactional()
+  public Page<OrderDetailResponse> getOrdersByRoleSelector(
+      UUID currentUserId,
+      Set<String> actualRoles,
+      String roleToUse,
+      UUID filterUserId,
+      String q,
+      String status,
+      String paymentMethod,
+      LocalDate fromDate,
+      LocalDate toDate,
+      Pageable pageable) {
+
+    // build base spec by role
+    Specification<OrderEntity> spec;
+    if ("ADMIN".equals(roleToUse)) {
+      spec = (root, query, cb) -> null;
+      if (filterUserId != null) spec = spec.and(OrderSpecifications.belongsToUser(filterUserId));
+    } else if ("DRIVER".equals(roleToUse)) {
+      if (currentUserId == null) throw AppException.badRequest("Không xác định driverId từ token");
+      spec = OrderSpecifications.hasShipperId(currentUserId);
+    } else if ("USER".equals(roleToUse)) {
+      if (currentUserId == null) throw AppException.badRequest("Không xác định userId từ token");
+      spec = OrderSpecifications.belongsToUser(currentUserId);
+    } else {
+      spec = getOrderEntitySpecification(currentUserId, actualRoles);
+    }
+
+    spec = applyCommonFilters(spec, q, status, paymentMethod, fromDate, toDate);
+
+    // 1) fetch paged orders (count + limited select)
+    Page<OrderEntity> page = orderRepo.findAll(spec, pageable);
+
+    if (page.isEmpty()) {
+      return page.map(OrderMapper::toDetail);
+    }
+
+    // 2) collect ids of current page
+    List<UUID> ids = page.stream().map(OrderEntity::getId).collect(Collectors.toList());
+
+    // 3) fetch orders with packages + addresses in one query
+    List<OrderEntity> ordersWithPackages = orderRepo.findAllByIdInWithPackages(ids);
+
+    // 4) fetch all priceRoutes for these orders in one query
+    List<OrderPriceRouteEntity> priceRoutes = priceRouteRepo.findByOrderIds(ids);
+
+    // 5) group priceRoutes by orderId
+    Map<UUID, List<OrderPriceRouteEntity>> priceRoutesByOrder =
+        priceRoutes.stream().collect(Collectors.groupingBy(pr -> pr.getOrder().getId()));
+
+    // 6) map orders list to map id->order for easy lookup
+    Map<UUID, OrderEntity> orderById =
+        ordersWithPackages.stream()
+            .collect(Collectors.toMap(OrderEntity::getId, Function.identity()));
+
+    // 7) attach priceRoutes into existing managed collection safely (clear + addAll)
+    for (UUID id : ids) {
+      OrderEntity order = orderById.get(id);
+      if (order == null) continue;
+
+      List<OrderPriceRouteEntity> prs =
+          priceRoutesByOrder.getOrDefault(id, Collections.emptyList());
+      List<OrderPriceRouteEntity> existing = order.getPriceRoutes();
+      if (existing == null) {
+        order.setPriceRoutes(new ArrayList<>(prs));
+      } else {
+        existing.clear();
+        existing.addAll(prs);
+      }
+    }
+
+    // 8) preserve page order and map to DTO using mapper overload that accepts priceRoutes via
+    // entity
+    List<OrderDetailResponse> dtos =
+        ids.stream()
+            .map(orderById::get)
+            .filter(Objects::nonNull)
+            .map(
+                OrderMapper
+                    ::toDetail) // mapper reads order.getPriceRoutes() which we already attached
+            .collect(Collectors.toList());
+
+    return new PageImpl<>(dtos, pageable, page.getTotalElements());
+  }
+
+  //    // helper to AND common filters
+  //  private Specification<OrderEntity> applyCommonFilters(
+  //      Specification<OrderEntity> base,
+  //      String q,
+  //      String status,
+  //      String paymentMethod,
+  //      LocalDate fromDate,
+  //      LocalDate toDate) {
+  //    Specification<OrderEntity> spec = base;
+  //    if (q != null && !q.isBlank()) spec = spec.and(OrderSpecifications.freeTextSearch(q));
+  //    if (status != null && !status.isBlank()) spec =
+  // spec.and(OrderSpecifications.hasStatus(status));
+  //    if (paymentMethod != null && !paymentMethod.isBlank())
+  //      spec = spec.and(OrderSpecifications.hasPaymentMethod(paymentMethod));
+  //    if (fromDate != null) spec = spec.and(OrderSpecifications.fromDate(fromDate));
+  //    if (toDate != null) spec = spec.and(OrderSpecifications.toDate(toDate));
+  //    return spec;
+  //  }
 
   public OrderDetailResponse getOrderById(UUID currentUserId, Set<String> roleNames, UUID orderId) {
     OrderEntity entity =

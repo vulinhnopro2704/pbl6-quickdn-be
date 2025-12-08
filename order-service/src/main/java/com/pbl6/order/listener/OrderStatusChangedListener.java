@@ -16,16 +16,14 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
+import static com.pbl6.order.constant.RedisKeyConstants.DRIVER_FCM_TOKEN;
+import static com.pbl6.order.constant.RedisKeyConstants.USER_FCM_TOKEN;
 import static com.pbl6.order.entity.OrderStatus.*;
 
 @Component
 public class OrderStatusChangedListener {
 
   private static final Logger log = LoggerFactory.getLogger(OrderStatusChangedListener.class);
-
-  private static final String USER_FCM_TOKEN = "user:%s:fcm"; // sửa theo key thực tế
-  private static final String DRIVER_FCM_TOKEN = "driver:%s:fcm"; // sửa theo key thực tế
-
   private final RedisTemplate<String, String> redisTemplate;
   private final FirebaseMessagingService firebaseMessagingService;
   private final ExecutorService pushExecutor;
@@ -75,10 +73,11 @@ public class OrderStatusChangedListener {
             // notify driver
             if (driverPayload != null && assignedShipper != null) {
               try {
+                  String driverKey = String.format(DRIVER_FCM_TOKEN, assignedShipper);
                 String driverToken =
                     redisTemplate
                         .opsForValue()
-                        .get(String.format(DRIVER_FCM_TOKEN, assignedShipper));
+                        .get(String.format(driverKey));
                 if (driverToken != null && !driverToken.isEmpty()) {
                   firebaseMessagingService.sendNotificationWithData(
                       driverToken, driverPayload.title, driverPayload.body, driverPayload.data);

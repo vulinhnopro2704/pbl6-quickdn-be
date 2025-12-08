@@ -4,6 +4,7 @@ import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.Notification;
 import com.pbl6.order.constant.RedisKeyConstants;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.geo.Circle;
 import org.springframework.data.geo.Distance;
 import org.springframework.data.geo.Metrics;
@@ -21,6 +22,7 @@ import java.util.concurrent.ExecutorService;
 
 import static com.pbl6.order.constant.RedisKeyConstants.*;
 
+@Slf4j
 @Service
 public class ShipperPushService {
 
@@ -77,7 +79,7 @@ public class ShipperPushService {
       }
 
       if (candidateIds.isEmpty()) {
-        // không có shipper khả dụng
+        log.debug("No available drivers found for order {}", orderId);
         return;
       }
 
