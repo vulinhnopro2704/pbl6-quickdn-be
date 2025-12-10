@@ -25,7 +25,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import static com.pbl6.auth.constant.RedisKeyConstants.DRIVER_FCM_TOKEN;
 import static com.pbl6.auth.constant.RedisKeyConstants.USER_FCM_TOKEN;
 
 @Service
@@ -81,13 +80,14 @@ public class UserService {
                     new UserAddressResponse(
                         a.getId(),
                         a.getAddressLine(),
-                        a.getWard(),
-                        a.getDistrict(),
-                        a.getProvince(),
-                        a.getCountry(),
+                        a.getDescription(),
+                        a.getDetail(),
+                        a.getName(),
+                        a.getPhone(),
                         a.getLatitude(),
                         a.getLongitude(),
-                        a.getDetail(),
+                        a.getWardCode(),
+                        a.getDistrictCode(),
                         a.getNote(),
                         a.isPrimary(),
                         a.getCreatedAt(),
@@ -141,16 +141,12 @@ public class UserService {
     BigDecimal lat = req.latitude();
     BigDecimal lon = req.longitude();
 
-    if (lat != null) {
-      if (lat.compareTo(BigDecimal.valueOf(-90)) < 0 || lat.compareTo(BigDecimal.valueOf(90)) > 0) {
-        throw AppException.badRequest("latitude must be between -90 and 90");
-      }
+    if (lat.compareTo(BigDecimal.valueOf(-90)) < 0 || lat.compareTo(BigDecimal.valueOf(90)) > 0) {
+      throw AppException.badRequest("latitude must be between -90 and 90");
     }
-    if (lon != null) {
-      if (lon.compareTo(BigDecimal.valueOf(-180)) < 0
-          || lon.compareTo(BigDecimal.valueOf(180)) > 0) {
-        throw AppException.badRequest("longitude must be between -180 and 180");
-      }
+    if (lon.compareTo(BigDecimal.valueOf(-180)) < 0
+        || lon.compareTo(BigDecimal.valueOf(180)) > 0) {
+      throw AppException.badRequest("longitude must be between -180 and 180");
     }
 
     // Lấy danh sách addresses hiện có (để kiểm tra primary và quyết định auto-primary)
@@ -159,14 +155,20 @@ public class UserService {
     UserAddress a = new UserAddress();
     a.setUser(user);
     a.setAddressLine(trimOrNull(req.addressLine()));
-    a.setWard(trimOrNull(req.ward()));
-    a.setDistrict(trimOrNull(req.district()));
-    a.setProvince(trimOrNull(req.province()));
-    a.setCountry(req.country() == null ? "VN" : req.country().trim());
-    a.setLatitude(lat);
-    a.setLongitude(lon);
+    a.setDescription(trimOrNull(req.description()));
+    a.setDetail(req.detail().trim()); // Required field
+    
+    // If name not provided, use User's fullName
+    a.setName(req.name() != null ? req.name().trim() : user.getFullName());
+    
+    // If phone not provided, use User's phone
+    a.setPhone(req.phone() != null ? req.phone().trim() : user.getPhone());
+    
+    a.setLatitude(lat); // Required
+    a.setLongitude(lon); // Required
+    a.setWardCode(req.wardCode());
+    a.setDistrictCode(req.districtCode());
     a.setNote(trimOrNull(req.note()));
-    a.setDetail(trimOrNull(req.detail()));
 
     boolean hasExisting = !existing.isEmpty();
 
@@ -264,14 +266,15 @@ public class UserService {
 
     // Update allowed fields if provided (null = không thay đổi)
     if (req.addressLine() != null) a.setAddressLine(trimOrNull(req.addressLine()));
-    if (req.ward() != null) a.setWard(trimOrNull(req.ward()));
-    if (req.district() != null) a.setDistrict(trimOrNull(req.district()));
-    if (req.province() != null) a.setProvince(trimOrNull(req.province()));
-    if (req.country() != null) a.setCountry(trimOrNull(req.country()));
+    if (req.description() != null) a.setDescription(trimOrNull(req.description()));
+    if (req.detail() != null) a.setDetail(trimOrNull(req.detail()));
+    if (req.name() != null) a.setName(trimOrNull(req.name()));
+    if (req.phone() != null) a.setPhone(trimOrNull(req.phone()));
     if (req.latitude() != null) a.setLatitude(req.latitude());
     if (req.longitude() != null) a.setLongitude(req.longitude());
+    if (req.wardCode() != null) a.setWardCode(req.wardCode());
+    if (req.districtCode() != null) a.setDistrictCode(req.districtCode());
     if (req.note() != null) a.setNote(trimOrNull(req.note()));
-    if (req.detail() != null) a.setDetail(trimOrNull(req.detail()));
 
     boolean requestPrimary = Boolean.TRUE.equals(req.isPrimary());
 
@@ -324,8 +327,8 @@ public class UserService {
   // Helper: set 1 address làm primary (dùng khi muốn thay primary)
   @Transactional
   public UserAddressResponse setPrimaryAddress(UUID userId, UUID addressId) {
-    User user =
-        userRepo.findById(userId).orElseThrow(() -> AppException.notFound("User not found"));
+    // Verify user exists
+    userRepo.findById(userId).orElseThrow(() -> AppException.notFound("User not found"));
 
     UserAddress toPrimary =
         addressRepo
@@ -356,13 +359,14 @@ public class UserService {
     return new UserAddressResponse(
         a.getId(),
         a.getAddressLine(),
-        a.getWard(),
-        a.getDistrict(),
-        a.getProvince(),
-        a.getCountry(),
+        a.getDescription(),
+        a.getDetail(),
+        a.getName(),
+        a.getPhone(),
         a.getLatitude(),
         a.getLongitude(),
-        a.getDetail(),
+        a.getWardCode(),
+        a.getDistrictCode(),
         a.getNote(),
         a.isPrimary(),
         a.getCreatedAt(),
