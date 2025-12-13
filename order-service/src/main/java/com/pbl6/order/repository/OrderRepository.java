@@ -1,11 +1,13 @@
 package com.pbl6.order.repository;
 
 import com.pbl6.order.entity.OrderEntity;
+import com.pbl6.order.repository.projection.OrderStatusCountProjection;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -33,4 +35,18 @@ public interface OrderRepository
     where o.id in :ids
   """)
     List<OrderEntity> findAllByIdInWithPackages(@Param("ids") List<UUID> ids);
+
+    @Query(
+        """
+            select o.status as status, count(o) as count
+            from OrderEntity o
+            where (:fromDate is null or o.createdAt >= :fromDate)
+              and (:toDate is null or o.createdAt <= :toDate)
+              and (:districtCode is null or o.pickupAddress.districtCode = :districtCode)
+            group by o.status
+        """)
+    List<OrderStatusCountProjection> aggregateStatusCounts(
+        @Param("fromDate") LocalDateTime fromDate,
+        @Param("toDate") LocalDateTime toDate,
+        @Param("districtCode") Integer districtCode);
 }
