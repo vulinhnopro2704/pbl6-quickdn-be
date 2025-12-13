@@ -49,13 +49,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
           // Lấy roles từ token
           List<String> roleNames = jwtUtils.getRolesFromToken(token);
 
-          List<SimpleGrantedAuthority> authorities =
+            List<SimpleGrantedAuthority> authorities =
               roleNames.stream()
-                  .filter(Objects::nonNull)
-                  .map(String::trim)
-                  .filter(s -> !s.isEmpty())
-                  .map(SimpleGrantedAuthority::new)
-                  .collect(Collectors.toList());
+                .filter(Objects::nonNull)
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    // Normalize to upper-case and ensure ROLE_ prefix so hasRole('ADMIN') matches
+                    .map(r -> {
+                      String normalized = r.toUpperCase();
+                      return normalized.startsWith("ROLE_") ? normalized : "ROLE_" + normalized;
+                    })
+                .map(SimpleGrantedAuthority::new)
+                .collect(Collectors.toList());
 
           UsernamePasswordAuthenticationToken auth =
               new UsernamePasswordAuthenticationToken(subject, null, authorities);
