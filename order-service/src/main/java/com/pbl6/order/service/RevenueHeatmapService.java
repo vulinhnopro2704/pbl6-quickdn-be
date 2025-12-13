@@ -22,9 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -40,8 +38,8 @@ public class RevenueHeatmapService {
   public HeatmapResponse getRevenueHeatmap(HeatmapRequest req) {
     if (req == null) return new HeatmapResponse(List.of());
 
-    LocalDateTime from = toLocalDateTime(req.fromDate());
-    LocalDateTime to = toLocalDateTime(req.toDate());
+    LocalDateTime from = req.fromDate();
+    LocalDateTime to = req.toDate();
 
     List<HeatmapPointDto> points =
         switch (req.viewType()) {
@@ -66,15 +64,21 @@ public class RevenueHeatmapService {
     Expression<Long> countExpr = cb.count(order);
     Expression<BigDecimal> revenueExpr = cb.sum(totalAmount);
 
-    Predicate dateBetween = cb.between(order.get("createdAt"), from, to);
+    Predicate predicate = cb.conjunction();
+    if (from != null) {
+      predicate = cb.and(predicate, cb.greaterThanOrEqualTo(order.get("createdAt"), from));
+    }
+    if (to != null) {
+      predicate = cb.and(predicate, cb.lessThanOrEqualTo(order.get("createdAt"), to));
+    }
 
     if (groupBy == HeatmapRequest.GroupByType.WARD) {
       cq.multiselect(district.alias("district"), ward.alias("ward"), revenueExpr.alias("revenue"), countExpr.alias("count"))
-          .where(dateBetween)
+          .where(predicate)
           .groupBy(district, ward);
     } else {
       cq.multiselect(district.alias("district"), revenueExpr.alias("revenue"), countExpr.alias("count"))
-          .where(dateBetween)
+          .where(predicate)
           .groupBy(district);
     }
 
@@ -97,15 +101,21 @@ public class RevenueHeatmapService {
     Expression<Long> countExpr = cb.count(pkg);
     Expression<BigDecimal> revenueExpr = cb.sum(deliveryFee);
 
-    Predicate dateBetween = cb.between(order.get("createdAt"), from, to);
+    Predicate predicate = cb.conjunction();
+    if (from != null) {
+      predicate = cb.and(predicate, cb.greaterThanOrEqualTo(order.get("createdAt"), from));
+    }
+    if (to != null) {
+      predicate = cb.and(predicate, cb.lessThanOrEqualTo(order.get("createdAt"), to));
+    }
 
     if (groupBy == HeatmapRequest.GroupByType.WARD) {
       cq.multiselect(district.alias("district"), ward.alias("ward"), revenueExpr.alias("revenue"), countExpr.alias("count"))
-          .where(dateBetween)
+          .where(predicate)
           .groupBy(district, ward);
     } else {
       cq.multiselect(district.alias("district"), revenueExpr.alias("revenue"), countExpr.alias("count"))
-          .where(dateBetween)
+          .where(predicate)
           .groupBy(district);
     }
 
@@ -150,9 +160,5 @@ public class RevenueHeatmapService {
               .map(c -> new CoordinateDto(c.lat(), c.lng()))
               .orElse(null);
     };
-  }
-
-  private static LocalDateTime toLocalDateTime(Instant instant) {
-    return instant == null ? null : LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
   }
 }

@@ -10,14 +10,13 @@ import com.pbl6.order.repository.PackageRepository;
 import com.pbl6.order.repository.projection.OrderStatusCountProjection;
 import com.pbl6.order.repository.projection.PackageStatusCountProjection;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -28,6 +27,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class StatusStatisticsService {
 
   private final OrderRepository orderRepository;
@@ -83,13 +83,20 @@ public class StatusStatisticsService {
   public StatusCountsResponse getStatusCounts(StatusCountsRequest request) {
     Objects.requireNonNull(request, "request must not be null");
 
-    LocalDateTime from = toLocalDateTime(request.fromDate());
-    LocalDateTime to = toLocalDateTime(request.toDate());
+    LocalDateTime from = request.fromDate();
+    LocalDateTime to = request.toDate();
 
     if (from != null && to != null && from.isAfter(to)) {
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST, "fromDate must be before or equal to toDate");
     }
+
+    log.info(
+        "StatusCounts request target={}, districtCode={}, from={}, to={}",
+        request.target(),
+        request.districtCode(),
+        from,
+        to);
 
     List<StatusCountItem> data =
         switch (request.target()) {
@@ -101,19 +108,27 @@ public class StatusStatisticsService {
   }
 
   private List<StatusCountItem> aggregateOrders(LocalDateTime from, LocalDateTime to, Integer districtCode) {
+    log.info("StatusCounts ORDER query from={}, to={}, districtCode={}", from, to, districtCode);
+
     Map<OrderStatus, Long> counts =
         orderRepository.aggregateStatusCounts(from, to, districtCode).stream()
             .filter(p -> p.getStatus() != null)
             .collect(Collectors.toMap(OrderStatusCountProjection::getStatus, OrderStatusCountProjection::getCount));
 
+    log.info("StatusCounts ORDER result size={}, counts={}", counts.size(), counts);
+
     return buildItems(OrderStatus.values(), counts, ORDER_META);
   }
 
   private List<StatusCountItem> aggregatePackages(LocalDateTime from, LocalDateTime to, Integer districtCode) {
+    log.info("StatusCounts PACKAGE query from={}, to={}, districtCode={}", from, to, districtCode);
+
     Map<PackageStatus, Long> counts =
         packageRepository.aggregateStatusCounts(from, to, districtCode).stream()
             .filter(p -> p.getStatus() != null)
             .collect(Collectors.toMap(PackageStatusCountProjection::getStatus, PackageStatusCountProjection::getCount));
+
+    log.info("StatusCounts PACKAGE result size={}, counts={}", counts.size(), counts);
 
     return buildItems(PackageStatus.values(), counts, PACKAGE_META);
   }
@@ -124,7 +139,9 @@ public class StatusStatisticsService {
     for (E status : allStatuses) {
       StatusMeta meta = Optional.ofNullable(metaMap.get(status)).orElse(defaultMeta(status));
       long count = counts.getOrDefault(status, 0L);
-      items.add(new StatusCountItem(meta.code(), status.name(), meta.label(), meta.colorCode(), count));
+      if (count > 0) {
+        items.add(new StatusCountItem(meta.code(), status.name(), meta.label(), meta.colorCode(), count));
+      }
     }
 
     items.sort(Comparator.comparingInt(StatusCountItem::statusCode));
@@ -133,10 +150,6 @@ public class StatusStatisticsService {
 
   private static StatusMeta defaultMeta(Enum<?> status) {
     return new StatusMeta(status.ordinal(), status.name(), "#6c757d");
-  }
-
-  private static LocalDateTime toLocalDateTime(Instant instant) {
-    return instant == null ? null : LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
   }
 
   private record StatusMeta(int code, String label, String colorCode) {}
