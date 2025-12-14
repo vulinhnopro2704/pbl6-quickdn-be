@@ -54,11 +54,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 .filter(Objects::nonNull)
                     .map(String::trim)
                     .filter(s -> !s.isEmpty())
-                    // Normalize to upper-case and ensure ROLE_ prefix so hasRole('ADMIN') matches
-                    .map(r -> {
-                      String normalized = r.toUpperCase();
-                      return normalized.startsWith("ROLE_") ? normalized : "ROLE_" + normalized;
-                    })
                 .map(SimpleGrantedAuthority::new)
                 .collect(Collectors.toList());
 

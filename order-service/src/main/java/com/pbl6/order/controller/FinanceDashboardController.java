@@ -30,7 +30,7 @@ public class FinanceDashboardController {
               responseCode = "200",
               description = "Finance metrics",
               content = @Content(schema = @Schema(implementation = FinanceDashboardResponse.class))))
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasAuthority('ADMIN')")
   public ResponseEntity<FinanceDashboardResponse> getFinanceMetrics() {
     return ResponseEntity.ok(financeDashboardService.getFinanceMetrics());
   }

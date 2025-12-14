@@ -49,7 +49,7 @@ public class StatisticsController {
                               + "  \"groupBy\": \"DISTRICT\",\n"
                               + "  \"viewType\": \"PICKUP\"\n"
                               + "}")))
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<HeatmapResponse> getRevenueHeatmap(
       @Valid @RequestBody HeatmapRequest req) {
     HeatmapRequest resolved = applyDefaults(req);
@@ -77,7 +77,7 @@ public class StatisticsController {
                               + "  \"target\": \"ORDER\",\n"
                               + "  \"districtCode\": 490\n"
                               + "}")))
-  @PreAuthorize("hasRole('ADMIN')")
+  @PreAuthorize("hasAuthority('ADMIN')")
   public ResponseEntity<StatusCountsResponse> getStatusCounts(
       @Valid @RequestBody StatusCountsRequest req) {
     StatusCountsRequest resolved = applyDefaults(req);
