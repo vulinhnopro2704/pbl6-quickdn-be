@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 @RestController
-@RequestMapping("/api/v1/stats")
+@RequestMapping("/stats")
 @RequiredArgsConstructor
 @Tag(name = "Statistics", description = "Revenue heatmap statistics")
 public class StatisticsController {
