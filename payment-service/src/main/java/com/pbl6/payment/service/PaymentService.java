@@ -164,6 +164,13 @@ public class PaymentService {
     }
     
     /**
+     * Save payment event (public method for external access)
+     */
+    public void savePaymentEventPublic(Long paymentId, Long orderCode, String eventType, Object payload) {
+        savePaymentEvent(paymentId, orderCode, eventType, payload);
+    }
+    
+    /**
      * Build payOS API request from our request
      * Includes signature generation
      */
