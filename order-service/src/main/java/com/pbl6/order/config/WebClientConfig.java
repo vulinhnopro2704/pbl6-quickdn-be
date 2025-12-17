@@ -22,6 +22,23 @@ public class WebClientConfig {
       @Value("${webclient.connect-timeout-ms}") int connectTimeoutMs,
       @Value("${webclient.read-timeout-ms}") int readTimeoutMs,
       @Value("${webclient.max-in-memory-size-bytes}") int maxInMemorySize) {
+
+    return buildWebClient(baseUrl, connectTimeoutMs, readTimeoutMs, maxInMemorySize);
+  }
+
+  @Bean(name = "paymentWebClient")
+  public WebClient paymentWebClient(
+      @Value("${payment.base-url}") String baseUrl,
+      @Value("${webclient.connect-timeout-ms}") int connectTimeoutMs,
+      @Value("${webclient.read-timeout-ms}") int readTimeoutMs,
+      @Value("${webclient.max-in-memory-size-bytes}") int maxInMemorySize) {
+
+    return buildWebClient(baseUrl, connectTimeoutMs, readTimeoutMs, maxInMemorySize);
+  }
+
+  private WebClient buildWebClient(
+      String baseUrl, int connectTimeoutMs, int readTimeoutMs, int maxInMemorySize) {
+
     TcpClient tcpClient =
         TcpClient.create()
             .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, connectTimeoutMs)

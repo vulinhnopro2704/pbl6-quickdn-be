@@ -78,6 +78,11 @@ gooongmap:
   base-url: ${GOOONGMAP_BASE_URL}
   distance-matrix-path: ${GOOONGMAP_DISTANCE_MATRIX_PATH}
 
+payment:
+  base-url: ${PAYMENT_BASE_URL}
+  create-payment-path: ${PAYMENT_CREATE_PAYMENT_PATH}
+  query-payment-path: ${PAYMENT_QUERY_PAYMENT_PATH}
+
 webclient:
   connect-timeout-ms: ${WEBCLIENT_CONNECT_TIMEOUT_MS}
   read-timeout-ms: ${WEBCLIENT_READ_TIMEOUT_MS}

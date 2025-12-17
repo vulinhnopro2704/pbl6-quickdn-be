@@ -2,6 +2,7 @@ package com.pbl6.order.service;
 
 import com.pbl6.order.dto.DistanceMatrixRequest;
 import com.pbl6.order.dto.DistanceMatrixResponse;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -17,9 +18,9 @@ public class GooongMapClientService {
   private final String distanceMatrixPath;
 
   public GooongMapClientService(
-      WebClient gooongMapWebClient,
+      @Qualifier("gooongMapWebClient") WebClient webClient,
       @Value("${gooongmap.distance-matrix-path}") String distanceMatrixPath) {
-    this.webClient = gooongMapWebClient;
+    this.webClient = webClient;
     this.distanceMatrixPath = distanceMatrixPath;
   }
 

@@ -33,4 +33,7 @@ public interface OrderRepository
     where o.id in :ids
   """)
     List<OrderEntity> findAllByIdInWithPackages(@Param("ids") List<UUID> ids);
+
+    @Query("select o.orderCode from OrderEntity o where o.id = :id")
+    Long findOrderCodeById(UUID id);
 }

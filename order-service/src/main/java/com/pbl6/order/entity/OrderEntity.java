@@ -4,6 +4,9 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.DynamicInsert;
+import org.hibernate.annotations.Generated;
+import org.hibernate.annotations.GenerationTime;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -16,8 +19,12 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
+@DynamicInsert
 public class OrderEntity {
   @Id @GeneratedValue private UUID id;
+
+  @Column(name = "order_code", nullable = false, unique = true)
+  private Long orderCode;
 
   @Column(name = "creator_id", nullable = false)
   private UUID creatorId;
