@@ -1,11 +1,15 @@
 package com.pbl6.payment.controller;
 
+import com.pbl6.payment.config.PayosConfig;
 import com.pbl6.payment.dto.CreatePaymentRequest;
 import com.pbl6.payment.dto.PaymentResponse;
 import com.pbl6.payment.dto.payos.PayosWebhookPayload;
 import com.pbl6.payment.entity.Payment;
+import com.pbl6.payment.entity.PaymentStatus;
 import com.pbl6.payment.exception.PaymentNotFoundException;
+import com.pbl6.payment.repository.PaymentRepository;
 import com.pbl6.payment.service.PaymentService;
+import com.pbl6.payment.util.SignatureHelper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
@@ -41,6 +45,8 @@ import org.springframework.web.bind.annotation.*;
 public class PaymentController {
     
     private final PaymentService paymentService;
+    private final PaymentRepository paymentRepository;
+    private final PayosConfig payosConfig;
 
     // ObjectMapper for logging payloads as JSON
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -369,40 +375,55 @@ public class PaymentController {
             return ResponseEntity.badRequest().body("Missing signature");
         }
 
-        // TODO: Implement webhook signature verification
-        // String dataString = buildWebhookDataString(payload.getData());
-        // boolean isValid = SignatureHelper.verifyWebhookSignature(
-        //     dataString, 
-        //     payload.getSignature(), 
-        //     payosConfig.getChecksumKey()
-        // );
-        // 
-        // if (!isValid) {
-        //     log.error("Invalid webhook signature");
-        //     return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid signature");
-        // }
+        // Verify webhook signature
+        String dataString = buildWebhookDataString(payload.getData());
+        boolean isValid = SignatureHelper.verifyWebhookSignature(
+            dataString, 
+            payload.getSignature(), 
+            payosConfig.getChecksumKey()
+        );
         
-        // TODO: Find payment by paymentLinkId and update status
-        // Optional<Payment> payment = paymentService.getPaymentByPaymentLinkId(
-        //     payload.getData().getPaymentLinkId()
-        // );
-        // 
-        // if (payment.isPresent()) {
-        //     Payment p = payment.get();
-        //     
-        //     if ("00".equals(payload.getCode())) {
-        //         p.setStatus(PaymentStatus.PAID);
-        //     } else {
-        //         p.setStatus(PaymentStatus.FAILED);
-        //     }
-        //     
-        //     paymentRepository.save(p);
-        //     
-        //     // Save webhook event
-        //     savePaymentEvent(p.getId(), p.getOrderCode(), "WEBHOOK", payload);
-        // }
+        if (!isValid) {
+            log.error("Invalid webhook signature: orderCode={}, paymentLinkId={}, expected data: {}", 
+                orderCode, paymentLinkId, dataString);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid signature");
+        }
         
-        log.info("Webhook processed (stub implementation)");
+        log.info("Webhook signature verified successfully: orderCode={}", orderCode);
+        
+        // Find payment by paymentLinkId and update status
+        java.util.Optional<Payment> paymentOpt = paymentService.getPaymentByPaymentLinkId(
+            payload.getData().getPaymentLinkId()
+        );
+        
+        if (paymentOpt.isEmpty()) {
+            log.warn("Payment not found for paymentLinkId={}, orderCode={}", paymentLinkId, orderCode);
+            // Still return OK to acknowledge webhook receipt
+            return ResponseEntity.ok("OK");
+        }
+        
+        Payment payment = paymentOpt.get();
+        PaymentStatus oldStatus = payment.getStatus();
+        
+        // Update payment status based on webhook code
+        if ("00".equals(payload.getCode())) {
+            payment.setStatus(PaymentStatus.PAID);
+            log.info("Payment status updated to PAID: orderCode={}, paymentLinkId={}", 
+                orderCode, paymentLinkId);
+        } else {
+            payment.setStatus(PaymentStatus.FAILED);
+            log.warn("Payment status updated to FAILED: orderCode={}, paymentLinkId={}, code={}, desc={}", 
+                orderCode, paymentLinkId, payload.getCode(), payload.getDesc());
+        }
+        
+        // Save updated payment
+        paymentRepository.save(payment);
+        
+        // Save webhook event for audit trail
+        savePaymentEvent(payment.getId(), payment.getOrderCode(), "WEBHOOK", payload);
+        
+        log.info("Webhook processed successfully: orderCode={}, oldStatus={}, newStatus={}", 
+            orderCode, oldStatus, payment.getStatus());
         return ResponseEntity.ok("OK");
     }
     
@@ -421,5 +442,29 @@ public class PaymentController {
             .expiredAt(payment.getExpiredAt())
             .build();
     }
+    
+    /**
+     * Build webhook data string for signature verification
+     * Data format (sorted alphabetically):
+     * amount=$amount&cancelUrl=$cancelUrl&description=$description&orderCode=$orderCode&returnUrl=$returnUrl
+     * 
+     * Note: PayOS webhook doesn't include cancelUrl and returnUrl in the data,
+     * so we only use the fields present in the webhook payload:
+     * amount=$amount&description=$description&orderCode=$orderCode
+     */
+    private String buildWebhookDataString(PayosWebhookPayload.WebhookData data) {
+        return String.format(
+            "amount=%d&description=%s&orderCode=%d",
+            data.getAmount(),
+            data.getDescription(),
+            data.getOrderCode()
+        );
+    }
+    
+    /**
+     * Save payment event for audit trail
+     */
+    private void savePaymentEvent(Long paymentId, Long orderCode, String eventType, Object payload) {
+        paymentService.savePaymentEventPublic(paymentId, orderCode, eventType, payload);
+    }
 }
-

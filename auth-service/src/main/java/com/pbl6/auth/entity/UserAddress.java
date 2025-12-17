@@ -30,32 +30,34 @@ public class UserAddress {
   private User user;
 
   @Column(name = "address_line", length = 500)
-  private String addressLine; // đường, số nhà
+  private String addressLine; // Optional: street address
 
-  @Column(length = 150)
-  private String ward; // phường/xã
+  @Column(name = "description", length = 500)
+  private String description; // Optional: description of address
 
-  @Column(length = 150)
-  private String district; // quận/huyện
+  @Column(name = "detail", nullable = false, length = 500)
+  private String detail; // Required: Full address with all info
 
-  @Column(length = 150)
-  private String province; // tỉnh/thành phố
+  @Column(name = "name", length = 150)
+  private String name; // Optional: name of person at this address (if null, use User's fullName)
 
-  @Column(length = 100)
-  private String country = "VN";
+  @Column(name = "phone", length = 20)
+  private String phone; // Optional: phone of person at this address (if null, use User's phone)
 
-  // Use DECIMAL(10,6)
-  @Column(name = "latitude", precision = 10, scale = 6)
-  private BigDecimal latitude;
+  @Column(name = "latitude", nullable = false, precision = 10, scale = 6)
+  private BigDecimal latitude; // Required
 
-  @Column(name = "longitude", precision = 10, scale = 6)
-  private BigDecimal longitude;
+  @Column(name = "longitude", nullable = false, precision = 10, scale = 6)
+  private BigDecimal longitude; // Required
 
-  @Column(name = "detail", length = 300)
-  private String detail;
+  @Column(name = "ward_code")
+  private Integer wardCode; // Optional: ward code
+
+  @Column(name = "district_code")
+  private Integer districtCode; // Optional: district code
 
   @Column(name = "note", length = 300)
-  private String note;
+  private String note; // Optional
 
   @Column(name = "is_primary", nullable = false)
   private boolean isPrimary = false;

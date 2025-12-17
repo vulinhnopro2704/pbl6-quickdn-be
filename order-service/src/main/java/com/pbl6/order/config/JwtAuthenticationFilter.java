@@ -49,13 +49,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
           // Lấy roles từ token
           List<String> roleNames = jwtUtils.getRolesFromToken(token);
 
-          List<SimpleGrantedAuthority> authorities =
+            List<SimpleGrantedAuthority> authorities =
               roleNames.stream()
-                  .filter(Objects::nonNull)
-                  .map(String::trim)
-                  .filter(s -> !s.isEmpty())
-                  .map(SimpleGrantedAuthority::new)
-                  .collect(Collectors.toList());
+                .filter(Objects::nonNull)
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                .map(SimpleGrantedAuthority::new)
+                .collect(Collectors.toList());
 
           UsernamePasswordAuthenticationToken auth =
               new UsernamePasswordAuthenticationToken(subject, null, authorities);
