@@ -13,13 +13,13 @@ env:
   REGISTRY: ghcr.io
   REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
   REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
-  
+
 jobs:
   build-and-push:
     name: Build and Push Images
     runs-on: ubuntu-latest
     environment: pbl6-backend-production
-    
+
     permissions:
       contents: read
       packages: write
@@ -109,7 +109,6 @@ jobs:
           FIREBASE_AUTH_PROVIDER_X509_CERT_URL: ${{ secrets.FIREBASE_AUTH_PROVIDER_X509_CERT_URL }}
           FIREBASE_CLIENT_X509_CERT_URL: ${{ secrets.FIREBASE_CLIENT_X509_CERT_URL }}
           FIREBASE_UNIVERSE_DOMAIN: ${{ secrets.FIREBASE_UNIVERSE_DOMAIN }}
-
 
       - name: Set up Python for Python Services
         if: matrix.service == 'ai-service' || matrix.service == 'file-service'
@@ -302,7 +301,6 @@ jobs:
             echo "Project directory ready at: ~/pbl6-backend"
             ls -la ~/pbl6-backend
 
-
       - name: Create .env file on VPS
         uses: appleboy/ssh-action@v1.0.3
         env:
@@ -315,18 +313,18 @@ jobs:
           envs: FIREBASE_BASE64
           script: |
             cd ~/pbl6-backend
-            
+
             # Backup existing .env if exists
             if [ -f .env ]; then
               cp .env .env.backup.$(date +%Y%m%d_%H%M%S)
               echo "Backed up existing .env"
             fi
-            
+
             # Create new .env file
             cat > .env << EOF
             # Registry Configuration
             REGISTRY_USERNAME=${{ secrets.REGISTRY_USERNAME }}
-            
+
             # Service URLs Configuration
             AUTH_SERVICE_URL=${{ secrets.AUTH_SERVICE_URL }}
             GOONGMAP_SERVICE_URL=${{ secrets.GOONGMAP_SERVICE_URL }}
@@ -334,39 +332,39 @@ jobs:
             PAYMENT_SERVICE_URL=${{ secrets.PAYMENT_SERVICE_URL }}
             AI_SERVICE_URL=${{ secrets.AI_SERVICE_URL }}
             FILE_SERVICE_URL=${{ secrets.FILE_SERVICE_URL }}
-            
+
             # Database Configuration - Auth Service
             AUTH_DB_NAME=${{ secrets.AUTH_DB_NAME }}
             AUTH_DB_USER=${{ secrets.AUTH_DB_USER }}
             AUTH_DB_PASSWORD=${{ secrets.AUTH_DB_PASSWORD }}
-            
+
             # Database Configuration - Order Service
             ORDER_DB_NAME=${{ secrets.ORDER_DB_NAME }}
             ORDER_DB_USER=${{ secrets.ORDER_DB_USER }}
             ORDER_DB_PASSWORD=${{ secrets.ORDER_DB_PASSWORD }}
-            
+
             # Database Configuration - Payment Service
             PAYMENT_DB_NAME=${{ secrets.PAYMENT_DB_NAME }}
             PAYMENT_DB_USER=${{ secrets.PAYMENT_DB_USER }}
             PAYMENT_DB_PASSWORD=${{ secrets.PAYMENT_DB_PASSWORD }}
-            
+
             # Database Configuration - AI Service
             AI_DB_NAME=${{ secrets.AI_DB_NAME }}
             AI_DB_USER=${{ secrets.AI_DB_USER }}
             AI_DB_PASSWORD=${{ secrets.AI_DB_PASSWORD }}
-            
+
             # AI Service Configuration
             AI_CLOUDINARY_CLOUD_NAME=${{ secrets.AI_CLOUDINARY_CLOUD_NAME }}
             AI_CLOUDINARY_API_KEY=${{ secrets.AI_CLOUDINARY_API_KEY }}
             AI_CLOUDINARY_API_SECRET=${{ secrets.AI_CLOUDINARY_API_SECRET }}
             AI_API_ENDPOINT=${{ secrets.AI_API_ENDPOINT }}
             AI_FACE_SIMILARITY_THRESHOLD=${{ secrets.AI_FACE_SIMILARITY_THRESHOLD }}
-            
+
             # File Service Configuration
             FILE_CLOUDINARY_CLOUD_NAME=${{ secrets.FILE_CLOUDINARY_CLOUD_NAME }}
             FILE_CLOUDINARY_API_KEY=${{ secrets.FILE_CLOUDINARY_API_KEY }}
             FILE_CLOUDINARY_API_SECRET=${{ secrets.FILE_CLOUDINARY_API_SECRET }}
-            
+
             # JWT Configuration
             JWT_SECRET=${{ secrets.JWT_SECRET }}
             JWT_ACCESS_EXP_MS=${{ secrets.JWT_ACCESS_EXP_MS }}
@@ -374,35 +372,50 @@ jobs:
 
             # Firebase Credentials
             FIREBASE_SERVICE_ACCOUNT_BASE64=${FIREBASE_BASE64}
-            
+
             # Redis Configuration
             REDIS_PASS=${{ secrets.REDIS_PASS }}
-            
+
             # API Keys
             GOONGMAP_API_KEY=${{ secrets.GOONGMAP_API_KEY }}
-            
+
             # PayOS Configuration
             PAYOS_API_KEY=${{ secrets.PAYOS_API_KEY }}
             PAYOS_CLIENT_ID=${{ secrets.PAYOS_CLIENT_ID }}
             PAYOS_CHECKSUM_KEY=${{ secrets.PAYOS_CHECKSUM_KEY }}
             PAYOS_API_BASE_URL=${{ secrets.PAYOS_API_BASE_URL }}
             PAYOS_MOCK_ENABLED=${{ secrets.PAYOS_MOCK_ENABLED }}
-            
+
+            # Payment Service WebClient
+            WEBCLIENT_CONNECT_TIMEOUT_MS=${{ secrets.WEBCLIENT_CONNECT_TIMEOUT_MS }}
+            WEBCLIENT_READ_TIMEOUT_MS=${{ secrets.WEBCLIENT_READ_TIMEOUT_MS }}
+            WEBCLIENT_MAX_IN_MEMORY_SIZE=${{ secrets.WEBCLIENT_MAX_IN_MEMORY_SIZE }}
+
+            # Order callbacks for Payment Service
+            ORDER_BASE_URL=${{ secrets.ORDER_BASE_URL }}
+            ORDER_INTERNAL_PAYMENT_SUCCESS_PATH=${{ secrets.ORDER_INTERNAL_PAYMENT_SUCCESS_PATH }}
+
+            # Payment Integration for Order Service
+            PAYMENT_BASE_URL=${{ secrets.PAYMENT_BASE_URL }}
+            PAYMENT_CREATE_PAYMENT_PATH=${{ secrets.PAYMENT_CREATE_PAYMENT_PATH }}
+            PAYMENT_QUERY_PAYMENT_PATH=${{ secrets.PAYMENT_QUERY_PAYMENT_PATH }}
+            ORDER_SERVICE_TOKEN=${{ secrets.ORDER_SERVICE_TOKEN }}
+
             # CORS Configuration
             CORS_ALLOWED_ORIGINS=${{ secrets.CORS_ALLOWED_ORIGINS }}
             CORS_ALLOWED_METHODS=${{ secrets.CORS_ALLOWED_METHODS }}
             CORS_ALLOWED_HEADERS=${{ secrets.CORS_ALLOWED_HEADERS }}
             CORS_EXPOSED_HEADERS=${{ secrets.CORS_EXPOSED_HEADERS }}
             CORS_ALLOW_CREDENTIALS=${{ secrets.CORS_ALLOW_CREDENTIALS }}
-            
+
             # Spring Profile
             SPRING_PROFILES_ACTIVE=${{ secrets.SPRING_PROFILES_ACTIVE }}
-            
+
             # Grafana Configuration (Optional - có default values)
             GRAFANA_ADMIN_USER=${{ secrets.GRAFANA_ADMIN_USER }}
             GRAFANA_ADMIN_PASSWORD=${{ secrets.GRAFANA_ADMIN_PASSWORD }}
             EOF
-            
+
             echo ".env file created successfully"
             ls -la .env
 
@@ -413,8 +426,8 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
-          source: "docker-compose.yml,prometheus/,grafana/"
-          target: "~/pbl6-backend/"
+          source: 'docker-compose.yml,prometheus/,grafana/'
+          target: '~/pbl6-backend/'
           strip_components: 0
 
       - name: Verify monitoring configs on VPS
@@ -446,14 +459,14 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           script: |
             set -e
-            
+
             echo "==================================="
             echo "Starting deployment process..."
             echo "==================================="
-            
+
             # Navigate to docker-compose directory
             cd ~/pbl6-backend
-            
+
             # Determine docker command with proper privileges (supports sudo password via secret)
             SUDO_PW="${{ secrets.VPS_SUDO_PASSWORD }}"
             if docker info >/dev/null 2>&1; then
@@ -487,14 +500,14 @@ jobs:
                 $DOCKER compose "$@"
               fi
             }
-            
+
             # Login to GitHub Container Registry
             if [ "$SUDO_MODE" = "withpassword" ]; then
               echo "${{ secrets.REGISTRY_TOKEN }}" | echo "$SUDO_PW" | sudo -S -p "" docker login ${{ env.REGISTRY }} -u ${{ secrets.REGISTRY_USERNAME }} --password-stdin
             else
               echo "${{ secrets.REGISTRY_TOKEN }}" | $DOCKER login ${{ env.REGISTRY }} -u ${{ secrets.REGISTRY_USERNAME }} --password-stdin
             fi
-            
+
             echo "Pulling latest images for all services..."
             docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/gateway:latest || true
             docker_cmd pull ${{ env.REGISTRY }}/${{ secrets.REGISTRY_USERNAME }}/pbl6-quickdn-be/auth-service:latest || true
@@ -506,18 +519,18 @@ jobs:
 
             echo "Recreating all services with latest images..."
             docker_compose_cmd up -d --force-recreate
-            
+
             echo "==================================="
             echo "Deployment completed successfully!"
             echo "==================================="
-            
+
             # Show status
             docker_compose_cmd ps
-            
+
             # Cleanup old images
             echo "Cleaning up old images..."
             docker_cmd image prune -f
-            
+
             # Logout from registry
             docker_cmd logout ${{ env.REGISTRY }}
 
@@ -530,7 +543,7 @@ jobs:
           port: ${{ secrets.VPS_PORT }}
           script: |
             cd ~/pbl6-backend
-            
+
             # Determine docker command with proper privileges (supports sudo password via secret)
             SUDO_PW="${{ secrets.VPS_SUDO_PASSWORD }}"
             if docker info >/dev/null 2>&1; then
@@ -560,14 +573,14 @@ jobs:
                 $DOCKER compose "$@"
               fi
             }
-            
+
             echo "==================================="
             echo "Verifying deployment..."
             echo "==================================="
-            
+
             # Check running containers
             docker_compose_cmd ps
-            
+
             # Check logs for errors (last 50 lines)
             echo ""
             echo "Recent logs:"
