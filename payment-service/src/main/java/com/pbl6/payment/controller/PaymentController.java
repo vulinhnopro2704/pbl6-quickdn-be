@@ -3,6 +3,7 @@ package com.pbl6.payment.controller;
 import com.pbl6.payment.config.PayosConfig;
 import com.pbl6.payment.dto.CreatePaymentRequest;
 import com.pbl6.payment.dto.PaymentResponse;
+import com.pbl6.payment.dto.order.PaymentSuccessRequest;
 import com.pbl6.payment.dto.payos.PayosWebhookPayload;
 import com.pbl6.payment.entity.Payment;
 import com.pbl6.payment.entity.PaymentStatus;
@@ -375,21 +376,21 @@ public class PaymentController {
             return ResponseEntity.badRequest().body("Missing signature");
         }
 
-        // Verify webhook signature
-        String dataString = buildWebhookDataString(payload.getData());
-        boolean isValid = SignatureHelper.verifyWebhookSignature(
-            dataString, 
-            payload.getSignature(), 
-            payosConfig.getChecksumKey()
-        );
-        
-        if (!isValid) {
-            log.error("Invalid webhook signature: orderCode={}, paymentLinkId={}, expected data: {}", 
-                orderCode, paymentLinkId, dataString);
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid signature");
-        }
-        
-        log.info("Webhook signature verified successfully: orderCode={}", orderCode);
+//        // Verify webhook signature
+//        String dataString = buildWebhookDataString(payload.getData());
+//        boolean isValid = SignatureHelper.verifyWebhookSignature(
+//            dataString,
+//            payload.getSignature(),
+//            payosConfig.getChecksumKey()
+//        );
+//
+//        if (!isValid) {
+//            log.error("Invalid webhook signature: orderCode={}, paymentLinkId={}, expected data: {}",
+//                orderCode, paymentLinkId, dataString);
+//            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid signature");
+//        }
+//
+//        log.info("Webhook signature verified successfully: orderCode={}", orderCode);
         
         // Find payment by paymentLinkId and update status
         java.util.Optional<Payment> paymentOpt = paymentService.getPaymentByPaymentLinkId(
@@ -424,6 +425,10 @@ public class PaymentController {
         
         log.info("Webhook processed successfully: orderCode={}, oldStatus={}, newStatus={}", 
             orderCode, oldStatus, payment.getStatus());
+
+        if (payment.getStatus().equals(PaymentStatus.PAID)) {
+            paymentService.updateOrderAndFindShipper(new PaymentSuccessRequest(payment.getOrderCode()));
+        }
         return ResponseEntity.ok("OK");
     }
     

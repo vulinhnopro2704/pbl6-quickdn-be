@@ -128,7 +128,7 @@ public class ShipperPushService {
         // nếu hết timeout mà chưa ai nhận -> tiếp batch tiếp theo
         idx = end;
       }
-
+      log.debug("No available drivers found for order {}", orderId);
       // Hết danh sách candidate
     } catch (Exception ex) {
       // log error nhưng không throw (worker), tránh crash cả pool

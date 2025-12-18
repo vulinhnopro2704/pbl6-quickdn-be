@@ -3,6 +3,7 @@ package com.pbl6.order.service;
 import com.pbl6.order.dto.*;
 import com.pbl6.order.dto.payment.CreatePaymentRequest;
 import com.pbl6.order.dto.payment.PaymentResponse;
+import com.pbl6.order.dto.payment.PaymentSuccessRequest;
 import com.pbl6.order.entity.*;
 import com.pbl6.order.event.OrderCreatedEvent;
 import com.pbl6.order.event.OrderStatusChangedEvent;
@@ -212,21 +213,54 @@ public class OrderService {
     paymentRequest.setCancelUrl("Nothing");
     paymentRequest.setReturnUrl("Nothing");
     try {
-      Mono<PaymentResponse> paymentResponse =
-            paymentClient.createPayment(paymentRequest);
-        PaymentResponse payment = paymentResponse.block();
-          if (payment != null) {
-            return new CreateOrderResponse(
-                order.getId(), order.getTotalAmount().doubleValue(), "VND", order.getStatus(), payment);
-          } else {
-              throw AppException.internal("Lỗi khi tạo payment");
-          }
-      } catch (Exception e) {
-        throw AppException.internal("Lỗi khi tạo payment: " + e.getMessage());
+      Mono<PaymentResponse> paymentResponse = paymentClient.createPayment(paymentRequest);
+      PaymentResponse payment = paymentResponse.block();
+      if (payment != null) {
+        return new CreateOrderResponse(
+            order.getId(), order.getTotalAmount().doubleValue(), "VND", order.getStatus(), payment);
+      } else {
+        throw AppException.internal("Lỗi khi tạo payment");
       }
+    } catch (Exception e) {
+      throw AppException.internal("Lỗi khi tạo payment: " + e.getMessage());
+    }
 
-//    publisher.publishEvent(new OrderCreatedEvent(order.getId(), lon, lat));
+    //    publisher.publishEvent(new OrderCreatedEvent(order.getId(), lon, lat));
     // trả về totalAmount (BigDecimal). CreateOrderResponse now uses OrderStatus enum for status
+  }
+
+  @Transactional
+  public void findShipperAndNotifyWithPayment(PaymentSuccessRequest request) {
+
+    Long orderCode = request.getOrderCode();
+    OrderEntity order = orderRepo.findOrderEntitiesByOrderCode(orderCode);
+
+    if (order == null) {
+      throw AppException.badRequest("Order not found with order code: " + orderCode);
+    }
+
+    double lon = 0.0;
+    double lat = 0.0;
+
+    if (order.getPickupAddress() != null) {
+      if (order.getPickupAddress().getLongitude() != null) {
+        lon = order.getPickupAddress().getLongitude().doubleValue();
+      }
+      if (order.getPickupAddress().getLatitude() != null) {
+        lat = order.getPickupAddress().getLatitude().doubleValue();
+      }
+    }
+
+    // Idempotency: tránh xử lý lại
+    if (order.getPaymentStatus() == PaymentStatus.PAID) {
+      return;
+    }
+
+    order.setPaymentStatus(PaymentStatus.PAID);
+    orderRepo.save(order);
+
+    // CHỈ publish event
+    publisher.publishEvent(new OrderCreatedEvent(order.getId(), lon, lat));
   }
 
   private PackageAddressEntity createAddress(AddressDto addrDto) {

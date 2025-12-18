@@ -37,7 +37,18 @@ dependencies {
     // Micrometer Prometheus for metrics
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'io.micrometer:micrometer-registry-prometheus'
-    
+
+    implementation("org.springframework.boot:spring-boot-starter-webflux")
+
+    // ModelMapper (optional) - DTO -> Entity mapping
+    implementation 'org.modelmapper:modelmapper:3.1.1'
+
+    // Spring Dotenv
+    implementation 'me.paulschwarz:spring-dotenv:4.0.0'
+
+    // Devtools
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'org.postgresql:postgresql'
     runtimeOnly 'com.h2database:h2'
