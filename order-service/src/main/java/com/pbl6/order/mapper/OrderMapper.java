@@ -80,7 +80,10 @@ public class OrderMapper {
         toAddress(e.getPickupAddress()),
         e.getPackages().stream().map(OrderMapper::toPackageItem).toList(),
         e.getShipperId(),
-        toPriceAndRouteList(e.getPriceRoutes()));
+        toPriceAndRouteList(e.getPriceRoutes()),
+        e.getPaymentStatus(),
+        e.getPaymentMethod(),
+        e.getOrderCode());
   }
 
   public static OrderStatusHistoryResponse toHistory(OrderStatusHistory h) {
