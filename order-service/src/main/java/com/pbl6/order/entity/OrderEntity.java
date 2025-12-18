@@ -34,7 +34,7 @@ public class OrderEntity {
 
   @Enumerated(EnumType.STRING)
   @Column(name = "payment_method", nullable = false)
-  private PaymentMethod paymentMethod = PaymentMethod.CASH; // default CASH
+  private PaymentMethod paymentMethod = PaymentMethod.ONLINE; // default CASH
 
   @Enumerated(EnumType.STRING)
   @Column(name = "payment_status", nullable = false)
