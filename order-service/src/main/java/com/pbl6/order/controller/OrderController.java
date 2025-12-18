@@ -1,6 +1,7 @@
 package com.pbl6.order.controller;
 
 import com.pbl6.order.dto.*;
+import com.pbl6.order.dto.payment.PaymentSuccessRequest;
 import com.pbl6.order.entity.PackageEntity;
 import com.pbl6.order.exception.AppException;
 import com.pbl6.order.service.OrderService;
@@ -450,5 +451,12 @@ public class OrderController {
             request.note(),
             driverId);
     return ResponseEntity.ok(updated);
+  }
+
+  @PostMapping("/internal/payment-success")
+  @PreAuthorize("hasAuthority('ADMIN')") // internal service auth
+  public ResponseEntity<?> handlePaymentSuccess(@RequestBody PaymentSuccessRequest request) {
+    orderService.findShipperAndNotifyWithPayment(request);
+    return ResponseEntity.ok().build();
   }
 }

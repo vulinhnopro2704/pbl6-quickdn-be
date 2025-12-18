@@ -37,6 +37,11 @@ public interface OrderRepository
   """)
     List<OrderEntity> findAllByIdInWithPackages(@Param("ids") List<UUID> ids);
 
+    @Query("select o.orderCode from OrderEntity o where o.id = :id")
+    Long findOrderCodeById(UUID id);
+
+    OrderEntity findOrderEntitiesByOrderCode(Long orderCode);
+
     @Query(
         """
           select o.status as status, count(o) as count

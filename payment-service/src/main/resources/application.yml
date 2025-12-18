@@ -116,3 +116,17 @@ management:
     metrics:
       export:
         enabled: true
+
+order:
+  base-url: ${ORDER_BASE_URL}
+  internal:
+    payment-success-path: ${ORDER_INTERNAL_PAYMENT_SUCCESS_PATH}
+
+internal:
+  order:
+    service-token: ${ORDER_SERVICE_TOKEN}
+
+webclient:
+  connect-timeout-ms: ${WEBCLIENT_CONNECT_TIMEOUT_MS}
+  read-timeout-ms: ${WEBCLIENT_READ_TIMEOUT_MS}
+  max-in-memory-size-bytes: ${WEBCLIENT_MAX_IN_MEMORY_SIZE}

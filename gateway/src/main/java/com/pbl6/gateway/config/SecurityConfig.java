@@ -50,6 +50,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/file/**").permitAll()
                         .requestMatchers("/swagger/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers("/api/order/internal/**").permitAll()
                         .anyRequest().permitAll()
                 );
         return http.build();

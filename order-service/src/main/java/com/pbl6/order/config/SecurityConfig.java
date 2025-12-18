@@ -50,7 +50,8 @@ public class SecurityConfig {
                         "/swagger-ui/**",
                         "/swagger-ui.html",
                         "/swagger-resources/**",
-                        "/webjars/**")
+                        "/webjars/**",
+                        "/api/order/internal/**")
                     .permitAll()
                     // mọi API khác cần authentication
                     .anyRequest()

@@ -5,6 +5,7 @@ import com.pbl6.payment.client.PayosClient;
 import com.pbl6.payment.config.PayosConfig;
 import com.pbl6.payment.dto.CreatePaymentRequest;
 import com.pbl6.payment.dto.PaymentResponse;
+import com.pbl6.payment.dto.order.PaymentSuccessRequest;
 import com.pbl6.payment.dto.payos.PayosCreatePaymentRequest;
 import com.pbl6.payment.dto.payos.PayosCreatePaymentResponse;
 import com.pbl6.payment.entity.Payment;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import reactor.core.publisher.Mono;
 
 import java.util.Map;
 import java.util.Optional;
@@ -39,6 +41,7 @@ public class PaymentService {
     private final PayosClient payosClient;
     private final PayosConfig payosConfig;
     private final ObjectMapper objectMapper;
+    private final OrderClientService orderClientService;
     
     /**
      * Create payment with idempotency by orderCode
@@ -289,5 +292,17 @@ public class PaymentService {
                 paymentId, eventType, e);
             // Don't fail the main flow if event logging fails
         }
+    }
+
+    public void updateOrderAndFindShipper(PaymentSuccessRequest request) {
+        try {
+            Mono<?> response = orderClientService.updateOrderAndFindShipper(request);
+            response.block();
+            log.info("Successfully updated order and found shipper for orderCode={}", request.getOrderCode());
+        } catch (Exception e) {
+            log.error("Failed to update order and find shipper for orderCode={}: {}",
+                request.getOrderCode(), e.getMessage(), e);
+        }
+
     }
 }
