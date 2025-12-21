@@ -82,9 +82,9 @@ public class ShipperPushService {
       }
 
       // 2) Batch push: mỗi lần gửi top-k shipper tiếp theo, chờ perBatchTimeoutMs để xem có ai nhận
-      // không
       int maxTries = 5;
       for (int i = 0; i < maxTries; i++) {
+      // không
         int idx = 0;
         final int total = candidateIds.size();
 
@@ -101,7 +101,7 @@ public class ShipperPushService {
           // Gửi notification không đồng bộ cho từng driver trong batch
           for (String driverId : batch) {
             // kiểm tra lại order trước khi gọi push để giảm gửi thừa
-            if (isOrderAssigned(assigneeKey)) {
+            if (isOrderAssigned(assigneeKey) || !isDriverAvailable(driverId)) {
               return;
             }
 
@@ -130,7 +130,7 @@ public class ShipperPushService {
         }
         log.debug("No available drivers found for order {}", orderId);
         // Hết danh sách candidate, tìm lại từ đầu (nếu có thể)
-        Thread.sleep(15000); // đợi 15s trước khi thử lại từ đầu
+        Thread.sleep(60000); // đợi 60s trước khi thử lại từ đầu
       }
     } catch (Exception ex) {
       // log error nhưng không throw (worker), tránh crash cả pool
