@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 @Schema(name = "BuyerDto", description = "Buyer/customer information for invoice generation")
 public class BuyerDto {
 
-  @Schema(description = "Full name of the buyer", example = "Nguyễn Văn A")
+  @Schema(description = "Full name of the buyer", example = "Nguyễn  Văn A")
   private String name;
 
   @Schema(description = "Company name (for business buyers)", example = "Công ty TNHH ABC")
