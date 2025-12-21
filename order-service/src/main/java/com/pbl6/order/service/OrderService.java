@@ -204,28 +204,37 @@ public class OrderService {
             ? order.getPickupAddress().getLatitude().doubleValue()
             : 0.0;
 
-    orderRepo.flush();
-    Long OrderCode = orderRepo.findOrderCodeById(order.getId());
-    CreatePaymentRequest paymentRequest = new CreatePaymentRequest();
-    paymentRequest.setOrderCode(OrderCode);
-    paymentRequest.setDescription("Order #abcd");
-    paymentRequest.setAmount(order.getTotalAmount().longValue());
-    paymentRequest.setCancelUrl("Nothing");
-    paymentRequest.setReturnUrl("Nothing");
-    try {
-      Mono<PaymentResponse> paymentResponse = paymentClient.createPayment(paymentRequest);
-      PaymentResponse payment = paymentResponse.block();
-      if (payment != null) {
-        return new CreateOrderResponse(
-            order.getId(), order.getTotalAmount().doubleValue(), "VND", order.getStatus(), payment);
-      } else {
-        throw AppException.internal("Lỗi khi tạo payment");
+    if (order.getPaymentMethod().equals(PaymentMethod.CASH)) {
+      publisher.publishEvent(new OrderCreatedEvent(order.getId(), lon, lat));
+      return new CreateOrderResponse(
+          order.getId(), order.getTotalAmount().doubleValue(), "VND", order.getStatus(), null);
+    } else {
+      orderRepo.flush();
+      Long OrderCode = orderRepo.findOrderCodeById(order.getId());
+      CreatePaymentRequest paymentRequest = new CreatePaymentRequest();
+      paymentRequest.setOrderCode(OrderCode);
+      paymentRequest.setDescription(OrderCode.toString());
+      paymentRequest.setAmount(order.getTotalAmount().longValue());
+      paymentRequest.setCancelUrl("Nothing");
+      paymentRequest.setReturnUrl("Nothing");
+      try {
+        Mono<PaymentResponse> paymentResponse = paymentClient.createPayment(paymentRequest);
+        PaymentResponse payment = paymentResponse.block();
+        if (payment != null) {
+          return new CreateOrderResponse(
+              order.getId(),
+              order.getTotalAmount().doubleValue(),
+              "VND",
+              order.getStatus(),
+              payment);
+        } else {
+          throw AppException.internal("Lỗi khi tạo payment");
+        }
+      } catch (Exception e) {
+        throw AppException.internal("Lỗi khi tạo payment: " + e.getMessage());
       }
-    } catch (Exception e) {
-      throw AppException.internal("Lỗi khi tạo payment: " + e.getMessage());
     }
 
-    //    publisher.publishEvent(new OrderCreatedEvent(order.getId(), lon, lat));
     // trả về totalAmount (BigDecimal). CreateOrderResponse now uses OrderStatus enum for status
   }
 
