@@ -8,6 +8,7 @@ public enum OrderStatus {
   // 4 cái phía trên sẽ remove sau khi push code lên live
 
   // Driver assignment – Giai đoạn tìm tài xế
+  PENDING_PAYMENT, // Chờ thanh toán (online)
   FINDING_DRIVER, // Đang tìm tài xế
   DRIVER_ASSIGNED, // Đã có tài xế nhận đơn
 

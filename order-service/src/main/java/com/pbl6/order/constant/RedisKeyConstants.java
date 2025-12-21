@@ -11,6 +11,7 @@ public final class RedisKeyConstants {
     public static final String USER_FCM_TOKEN = "user:%s:fcm_token";
     public static final String ORDER_ASSIGNEE_KEY_PATTERN = "order:%s:assignee";
     public static final String ORDER_CHANNEL_PATTERN = "order:channel:%s"; // optional nếu dùng pub/sub
+    public static final String DRIVER_DELIVERING_ORDER_KEY = "driver:%s:delivering_order_id";
 
 }
 

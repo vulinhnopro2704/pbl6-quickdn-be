@@ -138,6 +138,9 @@ public class OrderService {
     }
 
     if (req.paymentMethod() != null) {
+      if (req.paymentMethod().equals(PaymentMethod.ONLINE)) {
+        order.setStatus(OrderStatus.PENDING_PAYMENT);
+      }
       order.setPaymentMethod(req.paymentMethod());
     } else {
       order.setPaymentMethod(PaymentMethod.CASH); // default
@@ -264,7 +267,7 @@ public class OrderService {
     if (order.getPaymentStatus() == PaymentStatus.PAID) {
       return;
     }
-
+    order.setStatus(OrderStatus.FINDING_DRIVER);
     order.setPaymentStatus(PaymentStatus.PAID);
     orderRepo.save(order);
 
@@ -568,6 +571,19 @@ public class OrderService {
       }
     }
 
+    var driverCompletedOrder =
+        Set.of(
+            OrderStatus.DELIVERED,
+            OrderStatus.DELIVERY_FAILED,
+            OrderStatus.RETURNED,
+            OrderStatus.CANCELLED_BY_DRIVER,
+            OrderStatus.REASSIGNING_DRIVER);
+
+    if (driverCompletedOrder.contains(to)) {
+      String driverDeliveringOrder = String.format(DRIVER_DELIVERING_ORDER_KEY, oldShipper);
+      redisTemplate.delete(driverDeliveringOrder);
+    }
+
     // 3) apply status change
     order.setStatus(to);
 
@@ -854,6 +870,8 @@ public class OrderService {
     if (order.getShipperId() != null) {
       throw AppException.badRequest("Order already has a driver assigned");
     }
+    String deliveringOrder = String.format(DRIVER_DELIVERING_ORDER_KEY, driverId);
+    redisTemplate.opsForValue().set(deliveringOrder, orderId.toString());
     order.setStatus(OrderStatus.DRIVER_ASSIGNED);
     order.setShipperId(driverId);
     orderRepo.save(order);
