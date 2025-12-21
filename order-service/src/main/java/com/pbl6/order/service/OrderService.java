@@ -592,6 +592,11 @@ public class OrderService {
       redisTemplate.delete(driverDeliveringOrder);
     }
 
+    if (OrderStatus.REASSIGNING_DRIVER.equals(to)) {
+        String orderAssigneeKey = String.format(ORDER_ASSIGNEE_KEY_PATTERN, order.getId());
+        redisTemplate.delete(orderAssigneeKey);
+    }
+
     // 3) apply status change
     order.setStatus(to);
 
@@ -878,7 +883,10 @@ public class OrderService {
     if (order.getShipperId() != null) {
       throw AppException.badRequest("Order already has a driver assigned");
     }
+    log.info("Assigning driver {} to order {}", driverId, orderId);
+    String orderAssigneeKey = String.format(ORDER_ASSIGNEE_KEY_PATTERN, orderId);
     String deliveringOrder = String.format(DRIVER_DELIVERING_ORDER_KEY, driverId);
+    redisTemplate.opsForValue().set(orderAssigneeKey, driverId.toString());
     redisTemplate.opsForValue().set(deliveringOrder, orderId.toString());
     order.setStatus(OrderStatus.DRIVER_ASSIGNED);
     order.setShipperId(driverId);

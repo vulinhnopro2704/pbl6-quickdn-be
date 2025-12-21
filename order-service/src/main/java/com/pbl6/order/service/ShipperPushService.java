@@ -58,33 +58,34 @@ public class ShipperPushService {
     String assigneeKey = String.format(ORDER_ASSIGNEE_KEY_PATTERN, orderId.toString());
 
     try {
-      // 1) Lấy danh sách candidate từ GEO (gần -> xa)
-      // radius: 50 km (có thể thay). Lấy tối đa candidateLimit sau khi filter online.
-      Circle circle =
-          new Circle(new Point(longitude, latitude), new Distance(50, Metrics.KILOMETERS));
-      GeoResults<RedisGeoCommands.GeoLocation<String>> geoResults =
-          redisTemplate.opsForGeo().radius(DRIVERS_GEO_KEY, circle);
-
-      List<String> candidateIds = new ArrayList<>();
-      if (geoResults != null) {
-        candidateIds =
-            geoResults.getContent().stream()
-                .map(g -> g.getContent().getName()) // shipperId as String
-                .filter(this::isDriverAvailable) // lọc online/available (kiểm tra FCM token hoặc
-                // status)
-                .limit(candidateLimit)
-                .toList();
-      }
-
-      if (candidateIds.isEmpty()) {
-        log.debug("No available drivers found for order {}", orderId);
-        return;
-      }
-
-      // 2) Batch push: mỗi lần gửi top-k shipper tiếp theo, chờ perBatchTimeoutMs để xem có ai nhận
       int maxTries = 5;
       for (int i = 0; i < maxTries; i++) {
-      // không
+        // 1) Lấy danh sách candidate từ GEO (gần -> xa)
+        // radius: 50 km (có thể thay). Lấy tối đa candidateLimit sau khi filter online.
+        Circle circle =
+            new Circle(new Point(longitude, latitude), new Distance(50, Metrics.KILOMETERS));
+        GeoResults<RedisGeoCommands.GeoLocation<String>> geoResults =
+            redisTemplate.opsForGeo().radius(DRIVERS_GEO_KEY, circle);
+
+        List<String> candidateIds = new ArrayList<>();
+        if (geoResults != null) {
+          candidateIds =
+              geoResults.getContent().stream()
+                  .map(g -> g.getContent().getName()) // shipperId as String
+                  .filter(this::isDriverAvailable) // lọc online/available (kiểm tra FCM token hoặc
+                  // status)
+                  .limit(candidateLimit)
+                  .toList();
+        }
+
+        if (candidateIds.isEmpty()) {
+          log.debug("No available drivers found for order {}", orderId);
+          return;
+        }
+
+        // 2) Batch push: mỗi lần gửi top-k shipper tiếp theo, chờ perBatchTimeoutMs để xem có ai
+        // nhận
+        // không
         int idx = 0;
         final int total = candidateIds.size();
 
@@ -135,6 +136,10 @@ public class ShipperPushService {
     } catch (Exception ex) {
       // log error nhưng không throw (worker), tránh crash cả pool
       // logger.warn("Push worker failed for order {}: {}", orderId, ex.getMessage());
+    }
+    if (!isOrderAssigned(assigneeKey)) {
+      log.debug("No drivers accepted the order {}", orderId);
+
     }
   }
 
