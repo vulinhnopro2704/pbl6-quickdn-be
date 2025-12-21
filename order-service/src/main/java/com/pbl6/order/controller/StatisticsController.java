@@ -2,9 +2,12 @@ package com.pbl6.order.controller;
 
 import com.pbl6.order.dto.HeatmapRequest;
 import com.pbl6.order.dto.HeatmapResponse;
+import com.pbl6.order.dto.MonthlyRevenueRequest;
+import com.pbl6.order.dto.MonthlyRevenueResponse;
 import com.pbl6.order.dto.StatusCountsRequest;
 import com.pbl6.order.dto.StatusCountsResponse;
 import com.pbl6.order.service.RevenueHeatmapService;
+import com.pbl6.order.service.MonthlyRevenueService;
 import com.pbl6.order.service.StatusStatisticsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -22,6 +25,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.temporal.TemporalAdjusters;
+
 @RestController
 @RequestMapping("/stats")
 @RequiredArgsConstructor
@@ -29,28 +37,19 @@ import org.springframework.web.server.ResponseStatusException;
 public class StatisticsController {
 
   private final RevenueHeatmapService revenueHeatmapService;
+  private final MonthlyRevenueService monthlyRevenueService;
   private final StatusStatisticsService statusStatisticsService;
 
   @PostMapping("/heatmap/revenue")
   @Operation(summary = "Revenue heatmap", description = "Aggregate revenue for heatmap by district/ward and pickup/delivery view")
-  @io.swagger.v3.oas.annotations.parameters.RequestBody(
-      description = "Heatmap filter",
-      required = true,
-      content =
-          @Content(
-              schema = @Schema(implementation = HeatmapRequest.class),
-              examples =
-                  @ExampleObject(
-                      name = "Heatmap request",
-                      value =
-                          "{\n"
-                              + "  \"fromDate\": \"2024-01-01T00:00:00\",\n"
-                              + "  \"toDate\": \"2024-01-31T23:59:59\",\n"
-                              + "  \"groupBy\": \"DISTRICT\",\n"
-                              + "  \"viewType\": \"PICKUP\"\n"
-                              + "}")))
+  @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Heatmap filter", required = true, content = @Content(schema = @Schema(implementation = HeatmapRequest.class), examples = @ExampleObject(name = "Heatmap request", value = "{\n"
+      + "  \"fromDate\": \"2024-01-01T00:00:00\",\n"
+      + "  \"toDate\": \"2024-01-31T23:59:59\",\n"
+      + "  \"groupBy\": \"DISTRICT\",\n"
+      + "  \"viewType\": \"PICKUP\"\n"
+      + "}")))
   @PreAuthorize("hasAuthority('ADMIN')")
-    public ResponseEntity<HeatmapResponse> getRevenueHeatmap(
+  public ResponseEntity<HeatmapResponse> getRevenueHeatmap(
       @Valid @RequestBody HeatmapRequest req) {
     HeatmapRequest resolved = applyDefaults(req);
     validateHeatmapRequest(resolved);
@@ -58,31 +57,33 @@ public class StatisticsController {
   }
 
   @PostMapping("/status-counts")
-  @Operation(
-      summary = "Status counts",
-      description = "Thống kê số lượng đơn/gói theo trạng thái, lọc theo thời gian và quận")
-  @io.swagger.v3.oas.annotations.parameters.RequestBody(
-      description = "Status count filter",
-      required = true,
-      content =
-          @Content(
-              schema = @Schema(implementation = StatusCountsRequest.class),
-              examples =
-                  @ExampleObject(
-                      name = "Status counts request",
-                      value =
-                          "{\n"
-                              + "  \"fromDate\": \"2024-01-01T00:00:00\",\n"
-                              + "  \"toDate\": \"2024-01-31T23:59:59\",\n"
-                              + "  \"target\": \"ORDER\",\n"
-                              + "  \"districtCode\": 490\n"
-                              + "}")))
+  @Operation(summary = "Status counts", description = "Thống kê số lượng đơn/gói theo trạng thái, lọc theo thời gian và quận")
+  @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Status count filter", required = true, content = @Content(schema = @Schema(implementation = StatusCountsRequest.class), examples = @ExampleObject(name = "Status counts request", value = "{\n"
+      + "  \"fromDate\": \"2024-01-01T00:00:00\",\n"
+      + "  \"toDate\": \"2024-01-31T23:59:59\",\n"
+      + "  \"target\": \"ORDER\",\n"
+      + "  \"districtCode\": 490\n"
+      + "}")))
   @PreAuthorize("hasAuthority('ADMIN')")
   public ResponseEntity<StatusCountsResponse> getStatusCounts(
       @Valid @RequestBody StatusCountsRequest req) {
     StatusCountsRequest resolved = applyDefaults(req);
     validateStatusCountsRequest(resolved);
     return ResponseEntity.ok(statusStatisticsService.getStatusCounts(resolved));
+  }
+
+  @PostMapping("/revenue/monthly")
+  @Operation(summary = "Doanh thu theo tháng", description = "Thống kê doanh thu theo tháng (đơn giao thành công/hoàn trả)")
+  @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Bộ lọc thời gian cho thống kê doanh thu", required = true, content = @Content(schema = @Schema(implementation = MonthlyRevenueRequest.class), examples = @ExampleObject(name = "Monthly revenue request", value = "{\n"
+      + "  \"fromDate\": \"2024-01-01T00:00:00\",\n"
+      + "  \"toDate\": \"2024-12-31T23:59:59\"\n"
+      + "}")))
+  @PreAuthorize("hasAuthority('ADMIN')")
+  public ResponseEntity<MonthlyRevenueResponse> getMonthlyRevenue(
+      @Valid @RequestBody MonthlyRevenueRequest req) {
+    MonthlyRevenueRequest resolved = applyDefaults(req);
+    validateMonthlyRevenueRequest(resolved);
+    return ResponseEntity.ok(monthlyRevenueService.getMonthlyRevenue(resolved));
   }
 
   private void validateHeatmapRequest(HeatmapRequest req) {
@@ -131,5 +132,35 @@ public class StatisticsController {
 
     StatusCountsRequest.Target target = req.target() != null ? req.target() : StatusCountsRequest.Target.ORDER;
     return new StatusCountsRequest(req.fromDate(), req.toDate(), target, req.districtCode());
+  }
+
+  private void validateMonthlyRevenueRequest(MonthlyRevenueRequest req) {
+    if (req == null) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request body is required");
+    }
+
+    LocalDateTime from = req.fromDate();
+    LocalDateTime to = req.toDate();
+
+    if (from != null && to != null && from.isAfter(to)) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "fromDate must be before or equal to toDate");
+    }
+  }
+
+  private MonthlyRevenueRequest applyDefaults(MonthlyRevenueRequest req) {
+    if (req == null) {
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request body is required");
+    }
+
+    LocalDate today = LocalDate.now(ZoneOffset.UTC);
+    LocalDate firstDayThisMonth = today.with(TemporalAdjusters.firstDayOfMonth());
+
+    LocalDateTime defaultFrom = firstDayThisMonth.minusMonths(11).atStartOfDay();
+    LocalDateTime defaultTo = LocalDateTime.now(ZoneOffset.UTC);
+
+    LocalDateTime from = req.fromDate() != null ? req.fromDate() : defaultFrom;
+    LocalDateTime to = req.toDate() != null ? req.toDate() : defaultTo;
+
+    return new MonthlyRevenueRequest(from, to);
   }
 }
