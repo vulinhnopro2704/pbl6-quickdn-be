@@ -157,7 +157,8 @@ public class ShipperPushService {
   private boolean isDriverAvailable(String driverId) {
     try {
       String tokenKey = String.format(DRIVER_FCM_TOKEN, driverId);
-        return redisTemplate.hasKey(tokenKey);
+      String isDelivering = String.format(DRIVER_DELIVERING_ORDER_KEY, driverId);
+        return redisTemplate.hasKey(tokenKey) && !redisTemplate.hasKey(isDelivering);
     } catch (Exception ex) {
       return false;
     }
