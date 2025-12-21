@@ -10,12 +10,10 @@ import java.time.LocalDateTime;
 
 /** Payment entity for storing payment information in local DB */
 @Entity
-@Table(
-    name = "payment",
-    indexes = {
-      @Index(name = "idx_payment_order_code", columnList = "orderCode"),
-      @Index(name = "idx_payment_payos_payment_link_id", columnList = "payosPaymentLinkId")
-    })
+@Table(name = "payment", indexes = {
+    @Index(name = "idx_payment_order_code", columnList = "orderCode"),
+    @Index(name = "idx_payment_payos_payment_link_id", columnList = "payosPaymentLinkId")
+})
 @Data
 @Builder
 @NoArgsConstructor
@@ -51,6 +49,10 @@ public class Payment {
   /** Expired time (unix timestamp, seconds) */
   @Column(name = "expired_at")
   private Long expiredAt;
+
+  /** VietQR content returned by payOS */
+  @Column(name = "qr_code", columnDefinition = "TEXT")
+  private String qrCode;
 
   @Column(name = "created_at", nullable = false, updatable = false)
   private LocalDateTime createdAt;
