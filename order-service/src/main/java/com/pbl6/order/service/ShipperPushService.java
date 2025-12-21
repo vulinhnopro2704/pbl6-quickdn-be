@@ -59,7 +59,7 @@ public class ShipperPushService {
 
     try {
       // 1) Lấy danh sách candidate từ GEO (gần -> xa)
-      // radius: 10 km (có thể thay). Lấy tối đa candidateLimit sau khi filter online.
+      // radius: 50 km (có thể thay). Lấy tối đa candidateLimit sau khi filter online.
       Circle circle =
           new Circle(new Point(longitude, latitude), new Distance(50, Metrics.KILOMETERS));
       GeoResults<RedisGeoCommands.GeoLocation<String>> geoResults =
@@ -70,10 +70,8 @@ public class ShipperPushService {
         candidateIds =
             geoResults.getContent().stream()
                 .map(g -> g.getContent().getName()) // shipperId as String
-                .filter(
-                    this
-                        ::isDriverAvailable) // lọc online/available (kiểm tra FCM token hoặc
-                                             // status)
+                .filter(this::isDriverAvailable) // lọc online/available (kiểm tra FCM token hoặc
+                // status)
                 .limit(candidateLimit)
                 .toList();
       }
@@ -85,51 +83,55 @@ public class ShipperPushService {
 
       // 2) Batch push: mỗi lần gửi top-k shipper tiếp theo, chờ perBatchTimeoutMs để xem có ai nhận
       // không
-      int idx = 0;
-      final int total = candidateIds.size();
+      int maxTries = 5;
+      for (int i = 0; i < maxTries; i++) {
+        int idx = 0;
+        final int total = candidateIds.size();
 
-      while (idx < total) {
-        // Trước khi gửi batch kiểm tra order đã có assignee chưa
-        if (isOrderAssigned(assigneeKey)) {
-          // có người nhận rồi -> dừng
-          return;
-        }
-
-        int end = Math.min(idx + k, total);
-        List<String> batch = candidateIds.subList(idx, end);
-
-        // Gửi notification không đồng bộ cho từng driver trong batch
-        for (String driverId : batch) {
-          // kiểm tra lại order trước khi gọi push để giảm gửi thừa
+        while (idx < total) {
+          // Trước khi gửi batch kiểm tra order đã có assignee chưa
           if (isOrderAssigned(assigneeKey)) {
+            // có người nhận rồi -> dừng
             return;
           }
 
-          // Nếu sendPushToDriver blocking thì cân nhắc submit mỗi push vào executor khác.
-          sendPushToDriver(driverId, orderId.toString());
-        }
+          int end = Math.min(idx + k, total);
+          List<String> batch = candidateIds.subList(idx, end);
 
-        // Sau khi gửi batch, chờ 0..perBatchTimeoutMs nhưng check orderAssigned sớm (polling nhỏ)
-        long waited = 0;
-        final long pollInterval = 200; // check every 200ms để dừng sớm nếu có assignee
-        while (waited < perBatchTimeoutMs) {
-          if (isOrderAssigned(assigneeKey)) {
-            return; // có shipper nhận -> dừng ngay
-          }
-          try {
-            Thread.sleep(Math.min(pollInterval, perBatchTimeoutMs - waited));
-          } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return;
-          }
-          waited += pollInterval;
-        }
+          // Gửi notification không đồng bộ cho từng driver trong batch
+          for (String driverId : batch) {
+            // kiểm tra lại order trước khi gọi push để giảm gửi thừa
+            if (isOrderAssigned(assigneeKey)) {
+              return;
+            }
 
-        // nếu hết timeout mà chưa ai nhận -> tiếp batch tiếp theo
-        idx = end;
+            // Nếu sendPushToDriver blocking thì cân nhắc submit mỗi push vào executor khác.
+            sendPushToDriver(driverId, orderId.toString());
+          }
+
+          // Sau khi gửi batch, chờ 0..perBatchTimeoutMs nhưng check orderAssigned sớm (polling nhỏ)
+          long waited = 0;
+          final long pollInterval = 200; // check every 200ms để dừng sớm nếu có assignee
+          while (waited < perBatchTimeoutMs) {
+            if (isOrderAssigned(assigneeKey)) {
+              return; // có shipper nhận -> dừng ngay
+            }
+            try {
+              Thread.sleep(Math.min(pollInterval, perBatchTimeoutMs - waited));
+            } catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
+              return;
+            }
+            waited += pollInterval;
+          }
+
+          // nếu hết timeout mà chưa ai nhận -> tiếp batch tiếp theo
+          idx = end;
+        }
+        log.debug("No available drivers found for order {}", orderId);
+        // Hết danh sách candidate, tìm lại từ đầu (nếu có thể)
+        Thread.sleep(15000); // đợi 15s trước khi thử lại từ đầu
       }
-      log.debug("No available drivers found for order {}", orderId);
-      // Hết danh sách candidate
     } catch (Exception ex) {
       // log error nhưng không throw (worker), tránh crash cả pool
       // logger.warn("Push worker failed for order {}: {}", orderId, ex.getMessage());
@@ -142,7 +144,7 @@ public class ShipperPushService {
    */
   private boolean isOrderAssigned(String assigneeKey) {
     try {
-        return redisTemplate.hasKey(assigneeKey);
+      return redisTemplate.hasKey(assigneeKey);
     } catch (Exception ex) {
       // trong trường hợp redis lỗi, tránh false negative -> log rồi assume not assigned (tùy
       // policy)
@@ -158,7 +160,7 @@ public class ShipperPushService {
     try {
       String tokenKey = String.format(DRIVER_FCM_TOKEN, driverId);
       String isDelivering = String.format(DRIVER_DELIVERING_ORDER_KEY, driverId);
-        return redisTemplate.hasKey(tokenKey) && !redisTemplate.hasKey(isDelivering);
+      return redisTemplate.hasKey(tokenKey) && !redisTemplate.hasKey(isDelivering);
     } catch (Exception ex) {
       return false;
     }
