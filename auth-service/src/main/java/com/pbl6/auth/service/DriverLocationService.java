@@ -92,8 +92,6 @@ public class DriverLocationService {
     map.put("lon", dto.longitude().toString());
     map.put("updatedAt", LocalDateTime.now().format(formatter));
     redisTemplate.opsForHash().putAll(driverKey, map);
-    redisTemplate.expire(driverKey, TTL_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
-
     return true;
   }
 
