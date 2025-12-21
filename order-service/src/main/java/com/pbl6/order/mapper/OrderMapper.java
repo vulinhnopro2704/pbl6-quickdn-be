@@ -1,11 +1,7 @@
 package com.pbl6.order.mapper;
 
 import com.pbl6.order.dto.*;
-import com.pbl6.order.entity.OrderEntity;
-import com.pbl6.order.entity.OrderPriceRouteEntity;
-import com.pbl6.order.entity.OrderStatusHistory;
-import com.pbl6.order.entity.PackageAddressEntity;
-import com.pbl6.order.entity.PackageEntity;
+import com.pbl6.order.entity.*;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -96,5 +92,17 @@ public class OrderMapper {
         h.getOldShipperId(),
         h.getNewShipperId(),
         h.getCreatedAt());
+  }
+
+  public static ReviewResponse toReviewResponse(OrderReviewEntity e) {
+    if (e == null) return null;
+    return new ReviewResponse(
+        e.getId(),
+        e.getOrderId(),
+        e.getReviewerId(),
+        e.getShipperId(),
+        e.getRating(),
+        e.getComment(),
+        e.getCreatedAt());
   }
 }

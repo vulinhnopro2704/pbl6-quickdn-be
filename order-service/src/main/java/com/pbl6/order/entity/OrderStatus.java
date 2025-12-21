@@ -25,6 +25,7 @@ public enum OrderStatus {
   DELIVERY_ATTEMPT_FAILED, // Không liên lạc được người nhận
   DELIVERY_FAILED, // Giao thất bại
   DELIVERED, // Giao thành công
+  DELIVERED_WITH_ISSUES, // Giao hàng có sự cố
 
   // Return – Hoàn trả
   RETURNING_TO_SENDER, // Đang hoàn trả hàng về
