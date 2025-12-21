@@ -12,6 +12,7 @@ import com.pbl6.order.event.OrderAssignedEvent;
 import com.pbl6.order.mapper.OrderMapper;
 import com.pbl6.order.repository.*;
 import com.pbl6.order.spec.OrderSpecifications;
+import jakarta.persistence.criteria.Order;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -57,6 +58,7 @@ public class OrderService {
   private final PackageStatusHistoryRepository packageStatusHistoryRepo;
   private final OrderPriceRouteRepository priceRouteRepo;
   private final PaymentClientService paymentClient;
+  private final OrderReviewRepository reviewRepo;
 
   @Transactional
   public CreateOrderResponse createOrder(CreateOrderRequest req) {
@@ -171,6 +173,7 @@ public class OrderService {
       // cộng dồn vào totalAmount của order
       totalAmount = totalAmount.add(pkg.getDeliveryFee());
     }
+    order.setRated(false);
     order.setPackages(packageEntities);
     order.setEstimatedDistanceKm(estimatedDistanceKm);
     order.setEstimatedDurationMin(estimatedDurationMin);
@@ -527,7 +530,8 @@ public class OrderService {
                 OrderStatus.DELIVERED,
                 OrderStatus.DRIVER_ISSUE_REPORTED,
                 OrderStatus.REASSIGNING_DRIVER,
-                OrderStatus.CANCELLED_BY_DRIVER);
+                OrderStatus.CANCELLED_BY_DRIVER,
+                OrderStatus.DELIVERED_WITH_ISSUES);
         if (allowedForDriver.contains(to)) permitted = true;
       }
 
@@ -577,7 +581,11 @@ public class OrderService {
             OrderStatus.DELIVERY_FAILED,
             OrderStatus.RETURNED,
             OrderStatus.CANCELLED_BY_DRIVER,
-            OrderStatus.REASSIGNING_DRIVER);
+            OrderStatus.REASSIGNING_DRIVER,
+            OrderStatus.DELIVERED_WITH_ISSUES,
+            OrderStatus.ORDER_CANCELLED,
+            OrderStatus.CANCELLED_BY_SENDER,
+            OrderStatus.CANCELLED_NO_DRIVER);
 
     if (driverCompletedOrder.contains(to)) {
       String driverDeliveringOrder = String.format(DRIVER_DELIVERING_ORDER_KEY, oldShipper);
@@ -1004,5 +1012,105 @@ public class OrderService {
         new PackageStatusHistory(saved.getId(), oldStatus, newStatus, note, driverId);
     packageStatusHistoryRepo.save(history);
     return OrderMapper.toPackageItem(saved);
+  }
+
+  public ReviewResponse submitReview(UUID orderId, UUID userId, CreateReviewRequest req) {
+    OrderEntity order =
+        orderRepo
+            .findById(orderId)
+            .orElseThrow(() -> AppException.notFound("Order not found: " + orderId));
+    if (!order.getCreatorId().equals(userId)) {
+      throw AppException.forbidden("User not authorized to review this order");
+    }
+
+    var completedOrder =
+        Set.of(
+            OrderStatus.DELIVERED,
+            OrderStatus.DELIVERED_WITH_ISSUES,
+            OrderStatus.RETURNED,
+            OrderStatus.CANCELLED_BY_DRIVER,
+            OrderStatus.DELIVERY_FAILED);
+
+    if (!completedOrder.contains(order.getStatus())) {
+      throw AppException.badRequest("Cannot review order in status: " + order.getStatus());
+    }
+
+    if (order.isRated()) {
+      throw AppException.badRequest("Order has already been reviewed");
+    }
+
+    OrderReviewEntity review =
+        OrderReviewEntity.builder()
+            .orderId(order.getId())
+            .reviewerId(userId)
+            .shipperId(order.getShipperId())
+            .rating(req.rating())
+            .comment(req.comment())
+            .createdAt(LocalDateTime.now())
+            .build();
+    try {
+      reviewRepo.save(review);
+
+      // 6. Update flag trong order
+      order.setRated(true);
+      order.setRatedAt(LocalDateTime.now());
+      orderRepo.save(order);
+
+    } catch (Exception ex) {
+      // fallback nếu unique(order_id) bị hit
+      throw new IllegalStateException("Order đã được đánh giá (concurrent)", ex);
+    }
+    return OrderMapper.toReviewResponse(review);
+  }
+
+  public ReviewResponse getReview(UUID orderId) {
+    OrderReviewEntity review =
+        reviewRepo
+            .findByOrderId(orderId)
+            .orElseThrow(() -> AppException.notFound("Review not found for order: " + orderId));
+    return OrderMapper.toReviewResponse(review);
+  }
+
+  @Transactional()
+  public ShipperRatingDto getShipperRating(UUID driverId) {
+    Double avg = reviewRepo.findAverageRatingByShipperId(driverId);
+    long total = Optional.ofNullable(reviewRepo.countByShipperId(driverId)).orElse(0L);
+
+    double average = avg == null ? 0.0 : Math.round(avg * 100.0) / 100.0; // 2 decimal
+
+    // build distribution map default 0 for 1..5
+    Map<Integer, Long> dist = new HashMap<>();
+    for (int i = 1; i <= 5; i++) dist.put(i, 0L);
+
+    List<Object[]> raw = reviewRepo.findRatingDistributionByShipperId(driverId);
+    for (Object[] row : raw) {
+      Integer rating = (Integer) row[0];
+      Long count = (Long) row[1];
+      dist.put(rating, count);
+    }
+
+    return new ShipperRatingDto(driverId, average, total, dist);
+  }
+
+  @Transactional()
+  public Page<ReviewResponse> getReviews(UUID driverId, Pageable pageable) {
+    Page<OrderReviewEntity> page =
+        reviewRepo.findByShipperIdOrderByCreatedAtDesc(driverId, pageable);
+
+    List<ReviewResponse> content =
+        page.getContent().stream()
+            .map(
+                r ->
+                    new ReviewResponse(
+                        r.getId(),
+                        r.getOrderId(),
+                        r.getReviewerId(),
+                        r.getShipperId(),
+                        r.getRating(),
+                        r.getComment(),
+                        r.getCreatedAt()))
+            .collect(Collectors.toList());
+
+    return new PageImpl<>(content, pageable, page.getTotalElements());
   }
 }

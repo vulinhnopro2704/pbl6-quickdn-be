@@ -45,34 +45,54 @@ public class StatusStatisticsService {
               OrderStatus.DRIVER_EN_ROUTE_PICKUP,
               new StatusMeta(12, "Tài xế đang đến điểm lấy", "#fd7e14")),
           Map.entry(OrderStatus.ARRIVED_PICKUP, new StatusMeta(13, "Đã tới điểm lấy", "#fd7e14")),
-          Map.entry(OrderStatus.PICKUP_ATTEMPT_FAILED, new StatusMeta(14, "Không liên lạc người gửi", "#dc3545")),
+          Map.entry(
+              OrderStatus.PICKUP_ATTEMPT_FAILED,
+              new StatusMeta(14, "Không liên lạc người gửi", "#dc3545")),
           Map.entry(OrderStatus.PICKUP_FAILED, new StatusMeta(15, "Lấy hàng thất bại", "#dc3545")),
           Map.entry(OrderStatus.PACKAGE_PICKED, new StatusMeta(16, "Đã lấy hàng", "#0d6efd")),
           Map.entry(OrderStatus.EN_ROUTE_DELIVERY, new StatusMeta(20, "Đang giao hàng", "#fd7e14")),
-          Map.entry(OrderStatus.ARRIVED_DELIVERY, new StatusMeta(21, "Đã tới điểm giao", "#fd7e14")),
+          Map.entry(
+              OrderStatus.ARRIVED_DELIVERY, new StatusMeta(21, "Đã tới điểm giao", "#fd7e14")),
           Map.entry(
               OrderStatus.DELIVERY_ATTEMPT_FAILED,
               new StatusMeta(22, "Không liên lạc người nhận", "#dc3545")),
           Map.entry(OrderStatus.DELIVERY_FAILED, new StatusMeta(23, "Giao thất bại", "#dc3545")),
           Map.entry(OrderStatus.DELIVERED, new StatusMeta(24, "Giao thành công", "#198754")),
-          Map.entry(OrderStatus.RETURNING_TO_SENDER, new StatusMeta(30, "Đang hoàn trả", "#ffc107")),
+          Map.entry(
+              OrderStatus.RETURNING_TO_SENDER, new StatusMeta(30, "Đang hoàn trả", "#ffc107")),
           Map.entry(OrderStatus.RETURNED, new StatusMeta(31, "Đã hoàn trả", "#198754")),
-          Map.entry(OrderStatus.DRIVER_ISSUE_REPORTED, new StatusMeta(40, "Tài xế báo sự cố", "#6f42c1")),
-          Map.entry(OrderStatus.REASSIGNING_DRIVER, new StatusMeta(41, "Đang đổi tài xế", "#6f42c1")),
-          Map.entry(OrderStatus.CANCELLED_BY_SENDER, new StatusMeta(50, "Người gửi hủy", "#dc3545")),
+          Map.entry(
+              OrderStatus.DRIVER_ISSUE_REPORTED, new StatusMeta(40, "Tài xế báo sự cố", "#6f42c1")),
+          Map.entry(
+              OrderStatus.REASSIGNING_DRIVER, new StatusMeta(41, "Đang đổi tài xế", "#6f42c1")),
+          Map.entry(
+              OrderStatus.CANCELLED_BY_SENDER, new StatusMeta(50, "Người gửi hủy", "#dc3545")),
           Map.entry(OrderStatus.CANCELLED_BY_DRIVER, new StatusMeta(51, "Tài xế hủy", "#dc3545")),
-          Map.entry(OrderStatus.CANCELLED_NO_DRIVER, new StatusMeta(52, "Không tìm được tài xế", "#dc3545")),
-          Map.entry(OrderStatus.ORDER_CANCELLED, new StatusMeta(53, "Đơn hàng bị hủy", "#dc3545")));
+          Map.entry(
+              OrderStatus.CANCELLED_NO_DRIVER,
+              new StatusMeta(52, "Không tìm được tài xế", "#dc3545")),
+          Map.entry(OrderStatus.ORDER_CANCELLED, new StatusMeta(53, "Đơn hàng bị hủy", "#dc3545")),
+          Map.entry(
+              OrderStatus.DELIVERED_WITH_ISSUES,
+              new StatusMeta(54, "Giao hàng có sự cố", "#dc3545")),
+          Map.entry(OrderStatus.PENDING_PAYMENT, new StatusMeta(55, "Chờ thanh toán", "#6c757d")));
 
   private static final Map<PackageStatus, StatusMeta> PACKAGE_META =
       Map.ofEntries(
-          Map.entry(PackageStatus.WAITING_FOR_PICKUP, new StatusMeta(101, "Chờ lấy hàng", "#6c757d")),
+          Map.entry(
+              PackageStatus.WAITING_FOR_PICKUP, new StatusMeta(101, "Chờ lấy hàng", "#6c757d")),
           Map.entry(PackageStatus.PICKED_UP, new StatusMeta(102, "Đã lấy hàng", "#0d6efd")),
-          Map.entry(PackageStatus.PICKUP_ATTEMPT_FAILED, new StatusMeta(103, "Không liên lạc người gửi", "#dc3545")),
+          Map.entry(
+              PackageStatus.PICKUP_ATTEMPT_FAILED,
+              new StatusMeta(103, "Không liên lạc người gửi", "#dc3545")),
           Map.entry(PackageStatus.PICKUP_FAILED, new StatusMeta(104, "Lấy thất bại", "#dc3545")),
-          Map.entry(PackageStatus.WAITING_FOR_DELIVERY, new StatusMeta(105, "Chờ giao hàng", "#6c757d")),
-          Map.entry(PackageStatus.DELIVERY_IN_PROGRESS, new StatusMeta(106, "Đang giao", "#fd7e14")),
-          Map.entry(PackageStatus.DELIVERY_ATTEMPT_FAILED, new StatusMeta(107, "Không liên lạc người nhận", "#dc3545")),
+          Map.entry(
+              PackageStatus.WAITING_FOR_DELIVERY, new StatusMeta(105, "Chờ giao hàng", "#6c757d")),
+          Map.entry(
+              PackageStatus.DELIVERY_IN_PROGRESS, new StatusMeta(106, "Đang giao", "#fd7e14")),
+          Map.entry(
+              PackageStatus.DELIVERY_ATTEMPT_FAILED,
+              new StatusMeta(107, "Không liên lạc người nhận", "#dc3545")),
           Map.entry(PackageStatus.DELIVERY_FAILED, new StatusMeta(108, "Giao thất bại", "#dc3545")),
           Map.entry(PackageStatus.DELIVERED, new StatusMeta(109, "Giao thành công", "#198754")),
           Map.entry(PackageStatus.RETURNING, new StatusMeta(110, "Đang hoàn trả", "#ffc107")),
@@ -107,26 +127,33 @@ public class StatusStatisticsService {
     return new StatusCountsResponse(request.target(), data);
   }
 
-  private List<StatusCountItem> aggregateOrders(LocalDateTime from, LocalDateTime to, Integer districtCode) {
+  private List<StatusCountItem> aggregateOrders(
+      LocalDateTime from, LocalDateTime to, Integer districtCode) {
     log.info("StatusCounts ORDER query from={}, to={}, districtCode={}", from, to, districtCode);
 
     Map<OrderStatus, Long> counts =
         orderRepository.aggregateStatusCounts(from, to, districtCode).stream()
             .filter(p -> p.getStatus() != null)
-            .collect(Collectors.toMap(OrderStatusCountProjection::getStatus, OrderStatusCountProjection::getCount));
+            .collect(
+                Collectors.toMap(
+                    OrderStatusCountProjection::getStatus, OrderStatusCountProjection::getCount));
 
     log.info("StatusCounts ORDER result size={}, counts={}", counts.size(), counts);
 
     return buildItems(OrderStatus.values(), counts, ORDER_META);
   }
 
-  private List<StatusCountItem> aggregatePackages(LocalDateTime from, LocalDateTime to, Integer districtCode) {
+  private List<StatusCountItem> aggregatePackages(
+      LocalDateTime from, LocalDateTime to, Integer districtCode) {
     log.info("StatusCounts PACKAGE query from={}, to={}, districtCode={}", from, to, districtCode);
 
     Map<PackageStatus, Long> counts =
         packageRepository.aggregateStatusCounts(from, to, districtCode).stream()
             .filter(p -> p.getStatus() != null)
-            .collect(Collectors.toMap(PackageStatusCountProjection::getStatus, PackageStatusCountProjection::getCount));
+            .collect(
+                Collectors.toMap(
+                    PackageStatusCountProjection::getStatus,
+                    PackageStatusCountProjection::getCount));
 
     log.info("StatusCounts PACKAGE result size={}, counts={}", counts.size(), counts);
 
@@ -140,7 +167,8 @@ public class StatusStatisticsService {
       StatusMeta meta = Optional.ofNullable(metaMap.get(status)).orElse(defaultMeta(status));
       long count = counts.getOrDefault(status, 0L);
       if (count > 0) {
-        items.add(new StatusCountItem(meta.code(), status.name(), meta.label(), meta.colorCode(), count));
+        items.add(
+            new StatusCountItem(meta.code(), status.name(), meta.label(), meta.colorCode(), count));
       }
     }
 

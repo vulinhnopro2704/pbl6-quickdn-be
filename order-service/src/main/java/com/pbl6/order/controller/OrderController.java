@@ -459,4 +459,30 @@ public class OrderController {
     orderService.findShipperAndNotifyWithPayment(request);
     return ResponseEntity.ok().build();
   }
+
+  @PostMapping("/{id}/review")
+  public ResponseEntity<?> submitReview(
+      @PathVariable UUID id, @Valid @RequestBody CreateReviewRequest request, Authentication auth) {
+    UUID reviewerId = UUID.fromString(auth.getName());
+    ReviewResponse resp = orderService.submitReview(id, reviewerId, request);
+    return ResponseEntity.ok(resp);
+  }
+
+  @GetMapping("/{driverId}/rating")
+  public ResponseEntity<ShipperRatingDto> getShipperRating(@PathVariable UUID driverId) {
+    ShipperRatingDto dto = orderService.getShipperRating(driverId);
+    return ResponseEntity.ok(dto);
+  }
+
+  // GET reviews (paged)
+  @GetMapping("/{driverId}/reviews")
+  public ResponseEntity<Page<ReviewResponse>> getReviews(
+      @PathVariable UUID driverId,
+      @RequestParam(defaultValue = "0") int page,
+      @RequestParam(defaultValue = "10") int size) {
+
+    PageRequest pr = PageRequest.of(Math.max(0, page), Math.max(1, size));
+    Page<ReviewResponse> resp = orderService.getReviews(driverId, pr);
+    return ResponseEntity.ok(resp);
+  }
 }

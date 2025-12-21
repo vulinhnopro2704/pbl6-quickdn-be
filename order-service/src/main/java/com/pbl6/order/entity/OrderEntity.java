@@ -77,6 +77,12 @@ public class OrderEntity {
   @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
   private List<OrderPriceRouteEntity> priceRoutes = new ArrayList<>();
 
+    @Column(name = "is_rated")
+    private boolean rated = false;
+
+    @Column(name = "rated_at")
+    private LocalDateTime ratedAt;
+
   @PrePersist
   protected void onCreate() {
     this.createdAt = LocalDateTime.now();
