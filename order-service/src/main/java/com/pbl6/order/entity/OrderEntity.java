@@ -23,7 +23,7 @@ import java.util.UUID;
 public class OrderEntity {
   @Id @GeneratedValue private UUID id;
 
-  @Column(name = "order_code", nullable = false, unique = true)
+  @Column(name = "order_code", unique = true)
   private Long orderCode;
 
   @Column(name = "creator_id", nullable = false)
@@ -34,7 +34,7 @@ public class OrderEntity {
 
   @Enumerated(EnumType.STRING)
   @Column(name = "payment_method", nullable = false)
-  private PaymentMethod paymentMethod = PaymentMethod.ONLINE; // default CASH
+  private PaymentMethod paymentMethod = PaymentMethod.CASH; // default CASH
 
   @Enumerated(EnumType.STRING)
   @Column(name = "payment_status", nullable = false)
