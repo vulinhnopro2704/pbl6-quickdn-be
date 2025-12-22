@@ -545,7 +545,8 @@ public class OrderService {
                 OrderStatus.FINDING_DRIVER,
                 OrderStatus.DRIVER_ASSIGNED,
                 OrderStatus.DRIVER_EN_ROUTE_PICKUP,
-                OrderStatus.ARRIVED_PICKUP);
+                OrderStatus.ARRIVED_PICKUP,
+                OrderStatus.PENDING_PAYMENT);
         if (to == OrderStatus.CANCELLED_BY_SENDER && cancellableBySender.contains(from)) {
           permitted = true;
         }
@@ -593,8 +594,8 @@ public class OrderService {
     }
 
     if (OrderStatus.REASSIGNING_DRIVER.equals(to)) {
-        String orderAssigneeKey = String.format(ORDER_ASSIGNEE_KEY_PATTERN, order.getId());
-        redisTemplate.delete(orderAssigneeKey);
+      String orderAssigneeKey = String.format(ORDER_ASSIGNEE_KEY_PATTERN, order.getId());
+      redisTemplate.delete(orderAssigneeKey);
     }
 
     // 3) apply status change
