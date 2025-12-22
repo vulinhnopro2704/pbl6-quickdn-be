@@ -34,8 +34,8 @@ const getDirections = async (req: Request, res: Response) => {
           .status(503)
           .json(
             createErrorResponse(
-              'Service Unavailable',
-              'No response received from Goong API',
+              'Service  Unavailable',
+              'No response received from  Goong API',
               503,
               req.path,
             ),
